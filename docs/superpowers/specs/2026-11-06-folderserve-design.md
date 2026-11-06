@@ -41,6 +41,13 @@ testable without UI, and a SwiftUI app target depending on it.
   mapping with path-traversal protection, MIME types, `Range` requests, `index.html`
   fallback, generated directory listing, 400/403/404 pages. Dotfiles (e.g. `.env`,
   `.git`) not served by default (setting to change).
+  **SPA mode** (per-folder toggle, on by default): when a GET/HEAD request matches no
+  file or directory, and the path has no file extension, and the `Accept` header allows
+  `text/html`, respond 200 with the root `index.html` so client-side routers (React
+  Router, Vue Router, etc.) work on deep links and refresh. Requests that look like
+  assets (have an extension, e.g. missing `.js`/`.css`/`.png`) still return a real 404.
+  Live-reload script injection applies to the fallback page too. If no root `index.html`
+  exists, normal 404 behaviour applies.
 - **LiveReload** (package) — per-server FSEvents watcher on the folder, debounced
   ~100 ms. StaticServer injects a small `<script>` before `</body>` of HTML responses
   that connects via Server-Sent Events to `/__reload`; on change the server emits a
@@ -52,7 +59,8 @@ testable without UI, and a SwiftUI app target depending on it.
 - **UI** (app) — SwiftUI.
   - Main window: sidebar (Servers, Activity, Settings). Servers view shows a large drop
     zone when empty; otherwise one rounded card per folder with status glow, URL,
-    start/stop button, open-in-browser, copy URL, live-reload toggle, remove.
+    start/stop button, open-in-browser, copy URL, live-reload toggle, SPA-mode toggle,
+    remove.
     Activity shows a live request log.
   - `MenuBarExtra` popover: compact server list, start/stop, copy URL, "Open App".
   - Drop targets: main window, menu bar icon, Dock icon. Dropping a folder adds and
@@ -71,7 +79,9 @@ testable without UI, and a SwiftUI app target depending on it.
 ## Testing
 
 - XCTest unit tests for StaticServer: traversal (plain, encoded, symlink), MIME types,
-  Range, index fallback, directory listing, HEAD vs GET, script injection only on HTML.
+  Range, index fallback, directory listing, HEAD vs GET, script injection only on HTML,
+  SPA fallback (deep link → index.html, missing asset → 404, toggle off → 404, no
+  root index.html → 404, fallback response gets reload script).
 - Integration: real server on ephemeral port via `URLSession`; modify a file and assert
   an SSE `reload` event arrives.
 - UI verified manually by building and launching: drag and drop, start/stop, menu bar
@@ -79,5 +89,5 @@ testable without UI, and a SwiftUI app target depending on it.
 
 ## Out of scope (v1)
 
-LAN/remote access, HTTPS, CSS hot-swap, proxying/SPA rewrite rules, authentication,
-server-side scripting.
+LAN/remote access, HTTPS, CSS hot-swap, proxying/custom rewrite rules (only the SPA
+index.html fallback is supported), authentication, server-side scripting.
