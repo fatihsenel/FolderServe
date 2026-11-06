@@ -57,6 +57,11 @@ final class ServerManagerTests: XCTestCase {
         return String(decoding: data, as: UTF8.self)
     }
 
+    private func fetchStatus(_ port: UInt16, _ path: String) async throws -> (Int, String) {
+        let (data, response) = try await URLSession.shared.data(from: URL(string: "http://127.0.0.1:\(port)\(path)")!)
+        return ((response as! HTTPURLResponse).statusCode, String(decoding: data, as: UTF8.self))
+    }
+
     private func runningPort(_ id: UUID) -> UInt16? {
         if case .running(let p) = manager.statuses[id] { return p }
         return nil
@@ -174,5 +179,52 @@ final class ServerManagerTests: XCTestCase {
         await expectEventually { runningPort(id) != nil }
         _ = try await fetch(try XCTUnwrap(runningPort(id)), "/a.txt")
         await expectEventually { manager.log.contains { $0.serverID == id && $0.entry.path == "/a.txt" } }
+    }
+
+    func testGlobalDotfilesToggleAppliesToAllEntriesAndRunningServers() async throws {
+        let suite = UserDefaults(suiteName: "fs-test-\(UUID().uuidString)")!
+        manager = ServerManager(store: store, defaultStartPort: startPort, defaults: suite)
+        let f = try folder("a")
+        try "secret".write(to: f.appendingPathComponent(".env"), atomically: true, encoding: .utf8)
+        let id = manager.add(folder: f)
+        await expectEventually { runningPort(id) != nil }
+        let port = try XCTUnwrap(runningPort(id))
+        let before = try await fetchStatus(port, "/.env")
+        XCTAssertEqual(before.0, 403)
+
+        manager.setServeDotfiles(true)
+        XCTAssertTrue(manager.entries.allSatisfy { $0.options.serveDotfiles })
+        let after = try await fetchStatus(port, "/.env")
+        XCTAssertEqual(after.0, 200)
+        XCTAssertEqual(after.1, "secret")
+
+        let id2 = manager.add(folder: try folder("b"))
+        XCTAssertEqual(manager.entries.first(where: { $0.id == id2 })?.options.serveDotfiles, true)
+    }
+
+    func testGlobalSettingsPersistInDefaults() throws {
+        let suite = UserDefaults(suiteName: "fs-test-\(UUID().uuidString)")!
+        let m = ServerManager(store: store, defaultStartPort: startPort, defaults: suite)
+        XCTAssertTrue(m.startServersAtLaunch)
+        XCTAssertFalse(m.serveDotfiles)
+        m.setServeDotfiles(true)
+        m.startServersAtLaunch = false
+        let again = ServerManager(store: store, defaultStartPort: startPort, defaults: suite)
+        XCTAssertTrue(again.serveDotfiles)
+        XCTAssertFalse(again.startServersAtLaunch)
+    }
+
+    func testLogLinesFilterByServerNewestFirst() async throws {
+        let fa = try folder("a"), fb = try folder("b")
+        try "x".write(to: fa.appendingPathComponent("one.txt"), atomically: true, encoding: .utf8)
+        try "x".write(to: fb.appendingPathComponent("two.txt"), atomically: true, encoding: .utf8)
+        let a = manager.add(folder: fa), b = manager.add(folder: fb)
+        await expectEventually { runningPort(a) != nil && runningPort(b) != nil }
+        _ = try await fetch(try XCTUnwrap(runningPort(a)), "/one.txt")
+        _ = try await fetch(try XCTUnwrap(runningPort(b)), "/two.txt")
+        await expectEventually { manager.log.count >= 2 }
+        XCTAssertEqual(manager.logLines(for: a).map(\.entry.path), ["/one.txt"])
+        XCTAssertEqual(manager.logLines(for: b).map(\.entry.path), ["/two.txt"])
+        XCTAssertEqual(manager.logLines(for: nil).map(\.entry.path), ["/two.txt", "/one.txt"])
     }
 }

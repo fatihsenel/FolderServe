@@ -28,6 +28,8 @@ final class SnapshotTests: XCTestCase {
         try render("empty-dark", populated: false, scheme: .dark)
         try render("populated-dark", populated: true, scheme: .dark)
         try render("populated-light", populated: true, scheme: .light)
+        try render("activity-dark", populated: true, scheme: .dark, tab: .activity)
+        try render("settings-dark", populated: true, scheme: .dark, tab: .settings)
     }
 
     func testRenderMenuBarSnapshots() throws {

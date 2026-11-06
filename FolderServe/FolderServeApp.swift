@@ -11,7 +11,7 @@ struct FolderServeApp: App {
         Window("FolderServe", id: "main") {
             MainWindow()
                 .environment(manager)
-                .task { if !Self.isRunningTests { manager.startAutoStartEntries() } }
+                .task { if !Self.isRunningTests, manager.startServersAtLaunch { manager.startAutoStartEntries() } }
         }
         .windowStyle(.hiddenTitleBar)
 

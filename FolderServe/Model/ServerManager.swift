@@ -9,18 +9,30 @@ final class ServerManager {
     private(set) var statuses: [UUID: ServerStatus] = [:]
     var notice: String?
     private(set) var log: [LogLine] = []
+    /// Global setting: serve dotfiles (e.g. .env) from every folder. Off by default.
+    private(set) var serveDotfiles: Bool
+    /// Global setting: start the servers that were running when the app last quit.
+    var startServersAtLaunch: Bool {
+        didSet { defaults.set(startServersAtLaunch, forKey: Self.startAtLaunchKey) }
+    }
 
     @ObservationIgnored private let store: ServerStoring
     @ObservationIgnored private let defaultStartPort: UInt16
+    @ObservationIgnored private let defaults: UserDefaults
+    private static let dotfilesKey = "serveDotfiles"
+    private static let startAtLaunchKey = "startServersAtLaunch"
     @ObservationIgnored private var servers: [UUID: StaticServer] = [:]
     @ObservationIgnored private var scopedURLs: [UUID: URL] = [:]
     @ObservationIgnored private var starting: Set<UUID> = []
     private static let maxLogLines = 500
     private static let logger = Logger(subsystem: "com.fatihsenel.FolderServe", category: "servers")
 
-    init(store: ServerStoring, defaultStartPort: UInt16 = 8080) {
+    init(store: ServerStoring, defaultStartPort: UInt16 = 8080, defaults: UserDefaults = .standard) {
         self.store = store
         self.defaultStartPort = defaultStartPort
+        self.defaults = defaults
+        self.serveDotfiles = defaults.bool(forKey: Self.dotfilesKey)
+        self.startServersAtLaunch = defaults.object(forKey: Self.startAtLaunchKey) as? Bool ?? true
         entries = store.load()
         for e in entries { statuses[e.id] = .stopped }
     }
@@ -40,7 +52,7 @@ final class ServerManager {
             return existing.id
         }
         let entry = ServerEntry(id: UUID(), bookmark: Self.makeBookmark(folder), folderPath: path,
-                                preferredPort: nil, options: ServeOptions(), autoStart: true)
+                                preferredPort: nil, options: ServeOptions(serveDotfiles: serveDotfiles), autoStart: true)
         entries.append(entry)
         statuses[entry.id] = .stopped
         persist()
@@ -107,6 +119,22 @@ final class ServerManager {
         entries[i].options = options
         servers[id]?.updateOptions(options)
         persist()
+    }
+
+    func setServeDotfiles(_ value: Bool) {
+        serveDotfiles = value
+        defaults.set(value, forKey: Self.dotfilesKey)
+        for entry in entries {
+            var options = entry.options
+            options.serveDotfiles = value
+            setOptions(entry.id, options)
+        }
+    }
+
+    /// Request log, newest first; pass a server id to filter to that server.
+    func logLines(for serverID: UUID?) -> [LogLine] {
+        let lines = serverID.map { id in log.filter { $0.serverID == id } } ?? log
+        return lines.reversed()
     }
 
     func setPreferredPort(_ id: UUID, _ port: UInt16?) {
@@ -241,9 +269,10 @@ final class ServerManager {
 #if DEBUG
 extension ServerManager {
     /// Seeds state for SwiftUI previews and snapshot tests without starting real servers.
-    func loadPreview(entries: [ServerEntry], statuses: [UUID: ServerStatus]) {
+    func loadPreview(entries: [ServerEntry], statuses: [UUID: ServerStatus], log: [LogLine] = []) {
         self.entries = entries
         self.statuses = statuses
+        self.log = log
     }
 }
 #endif
