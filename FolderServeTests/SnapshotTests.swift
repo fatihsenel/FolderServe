@@ -29,4 +29,22 @@ final class SnapshotTests: XCTestCase {
         try render("populated-dark", populated: true, scheme: .dark)
         try render("populated-light", populated: true, scheme: .light)
     }
+
+    func testRenderMenuBarSnapshots() throws {
+        for (name, populated) in [("menubar-empty", false), ("menubar-populated", true)] {
+            let view = MenuBarView()
+                .environment(PreviewData.manager(populated: populated))
+                .environment(\.colorScheme, .dark)
+                .environment(\.isSnapshotRendering, true)
+                .background(Color(white: 0.15))
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 2
+            let image = try XCTUnwrap(renderer.nsImage)
+            let tiff = try XCTUnwrap(image.tiffRepresentation)
+            let png = try XCTUnwrap(NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]))
+            XCTAssertGreaterThan(png.count, 5_000)
+            let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+            try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-\(name).png"))
+        }
+    }
 }

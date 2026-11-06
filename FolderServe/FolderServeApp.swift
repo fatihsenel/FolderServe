@@ -14,5 +14,12 @@ struct FolderServeApp: App {
                 .task { if !Self.isRunningTests { manager.startAutoStartEntries() } }
         }
         .windowStyle(.hiddenTitleBar)
+
+        MenuBarExtra {
+            MenuBarView().environment(manager)
+        } label: {
+            Image(systemName: "globe.americas.fill")
+        }
+        .menuBarExtraStyle(.window)
     }
 }
