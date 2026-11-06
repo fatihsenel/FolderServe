@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 import FolderServeCore
 
 @MainActor @Observable
@@ -15,6 +16,7 @@ final class ServerManager {
     @ObservationIgnored private var scopedURLs: [UUID: URL] = [:]
     @ObservationIgnored private var starting: Set<UUID> = []
     private static let maxLogLines = 500
+    private static let logger = Logger(subsystem: "com.fatihsenel.FolderServe", category: "servers")
 
     init(store: ServerStoring, defaultStartPort: UInt16 = 8080) {
         self.store = store
@@ -119,6 +121,7 @@ final class ServerManager {
         defer { starting.remove(id) }
 
         guard let folder = accessFolder(for: entry) else {
+            Self.logger.error("Cannot access folder \(entry.folderPath, privacy: .public)")
             statuses[id] = .folderMissing
             return
         }
@@ -202,6 +205,13 @@ final class ServerManager {
         var scoped = false
         if !entry.bookmark.isEmpty {
             var stale = false
+            do {
+                _ = try URL(resolvingBookmarkData: entry.bookmark, options: .withSecurityScope,
+                            relativeTo: nil, bookmarkDataIsStale: &stale)
+            } catch {
+                Self.logger.error("Bookmark resolve failed: \(String(describing: error), privacy: .public)")
+                return nil
+            }
             guard let resolved = try? URL(resolvingBookmarkData: entry.bookmark, options: .withSecurityScope,
                                           relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
             url = resolved
@@ -219,6 +229,7 @@ final class ServerManager {
         }
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue else {
+            Self.logger.error("Folder not readable: \(url.path, privacy: .public) scoped=\(scoped)")
             if scoped { url.stopAccessingSecurityScopedResource() }
             return nil
         }

@@ -3,11 +3,12 @@ import FolderServeCore
 
 @main
 struct FolderServeApp: App {
-    @State private var manager = ServerManager(store: JSONFileStore.default)
+    @NSApplicationDelegateAdaptor(FolderServeAppDelegate.self) private var appDelegate
+    private let manager = AppServices.manager
     private static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
 
     var body: some Scene {
-        WindowGroup("FolderServe") {
+        Window("FolderServe", id: "main") {
             MainWindow()
                 .environment(manager)
                 .task { if !Self.isRunningTests { manager.startAutoStartEntries() } }

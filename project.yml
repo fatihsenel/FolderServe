@@ -13,6 +13,18 @@ targets:
     sources: [FolderServe]
     dependencies:
       - package: FolderServeCore
+    info:
+      path: FolderServe/Info.plist
+      properties:
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Folder
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.folder]
+          - CFBundleTypeName: HTML document
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.html]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fatihsenel.FolderServe

@@ -15,6 +15,10 @@ public enum PortFinder {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
         guard fd >= 0 else { return false }
         defer { close(fd) }
+        // Mirror NWListener: SO_REUSEADDR lets us rebind a port whose old connections linger in
+        // TIME_WAIT, while an active listener on the same address still makes bind() fail.
+        var reuse: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
         var addr = sockaddr_in()
         addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
         addr.sin_family = sa_family_t(AF_INET)
