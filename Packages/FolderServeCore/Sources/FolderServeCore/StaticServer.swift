@@ -17,6 +17,9 @@ public final class StaticServer: @unchecked Sendable {
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: NWConnection] = [:]
     private var _onRequest: (@Sendable (RequestLogEntry) -> Void)?
+    private let hub = ReloadHub()
+    private var watcher: FolderWatcher?
+    private var pingTimer: DispatchSourceTimer?
 
     public var onRequest: (@Sendable (RequestLogEntry) -> Void)? {
         get { lock.lock(); defer { lock.unlock() }; return _onRequest }
@@ -71,6 +74,7 @@ public final class StaticServer: @unchecked Sendable {
         switch result {
         case .success(let p):
             lock.lock(); self.listener = listener; lock.unlock()
+            startLiveReload()
             return p
         case .failure(let e):
             throw e
@@ -83,10 +87,39 @@ public final class StaticServer: @unchecked Sendable {
         listener = nil
         lock.unlock()
         l?.cancel()
+        watcher?.stop()
+        watcher = nil
         queue.async { [self] in
+            pingTimer?.cancel()
+            pingTimer = nil
+            hub.removeAll()
             for c in connections.values { c.cancel() }
             connections.removeAll()
         }
+    }
+
+    // MARK: - Live reload
+
+    private func startLiveReload() {
+        let w = FolderWatcher(root: root, debounce: 0.1) { [weak self] in
+            guard let self else { return }
+            self.queue.async { if self.currentOptions.liveReload { self.hub.broadcast() } }
+        }
+        w.start()
+        watcher = w
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 15, repeating: 15)
+        timer.setEventHandler { [weak self] in self?.hub.ping() }
+        timer.resume()
+        pingTimer = timer
+    }
+
+    private func handleReloadStream(_ conn: NWConnection) {
+        let head = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\n\r\n: connected\n\n"
+        conn.send(content: Data(head.utf8), completion: .contentProcessed { [weak self] err in
+            if err != nil { conn.cancel(); return }
+            self?.hub.add(conn)
+        })
     }
 
     // MARK: - Connections
@@ -124,6 +157,10 @@ public final class StaticServer: @unchecked Sendable {
     // MARK: - Responses
 
     private func respond(_ conn: NWConnection, _ req: HTTPRequest) {
+        if req.method == "GET", req.path == "/__reload" {
+            handleReloadStream(conn)
+            return
+        }
         guard req.method == "GET" || req.method == "HEAD" else {
             sendPage(conn, status: 405, message: "Method not allowed", method: req.method, path: req.path,
                      head: false, extra: ["Allow": "GET, HEAD"])
@@ -145,14 +182,15 @@ public final class StaticServer: @unchecked Sendable {
                      extra: ["Location": target])
         case .directoryListing(let dir):
             let html = DirectoryListing.html(directory: dir, urlPath: req.path, showDotfiles: opts.serveDotfiles)
-            sendBody(conn, status: 200, contentType: "text/html; charset=utf-8", body: Data(html.utf8),
+            let page = opts.liveReload ? ReloadScript.inject(into: Data(html.utf8)) : Data(html.utf8)
+            sendBody(conn, status: 200, contentType: "text/html; charset=utf-8", body: page,
                      method: req.method, path: req.path, head: isHead)
         case .file(let url):
-            sendFile(conn, url: url, req: req, head: isHead)
+            sendFile(conn, url: url, req: req, head: isHead, liveReload: opts.liveReload)
         }
     }
 
-    private func sendFile(_ conn: NWConnection, url: URL, req: HTTPRequest, head: Bool) {
+    private func sendFile(_ conn: NWConnection, url: URL, req: HTTPRequest, head: Bool, liveReload: Bool) {
         let size = ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber)?.int64Value ?? -1
         guard size >= 0 else {
             sendPage(conn, status: 404, message: "Not found: \(req.path)", method: req.method, path: req.path, head: head)
@@ -167,7 +205,14 @@ public final class StaticServer: @unchecked Sendable {
         var length = size
         switch RangeHeader.parse(req.headers["range"], fileSize: size) {
         case .none:
-            break
+            let ext = url.pathExtension.lowercased()
+            if liveReload, ext == "html" || ext == "htm", size <= Self.maxInjectableBytes,
+               let original = try? Data(contentsOf: url) {
+                sendBody(conn, status: 200, contentType: MIMEType.forExtension(ext),
+                         body: ReloadScript.inject(into: original), method: req.method, path: req.path,
+                         head: head, extra: ["Accept-Ranges": "bytes"])
+                return
+            }
         case .partial(let r):
             status = 206
             range = r
@@ -241,6 +286,8 @@ public final class StaticServer: @unchecked Sendable {
     private func lockedLog(_ entry: RequestLogEntry) {
         onRequest?(entry)
     }
+
+    private static let maxInjectableBytes: Int64 = 20 * 1024 * 1024
 
     private static func head(status: Int, headers: [String: String]) -> String {
         var s = "HTTP/1.1 \(status) \(reason(status))\r\n"
