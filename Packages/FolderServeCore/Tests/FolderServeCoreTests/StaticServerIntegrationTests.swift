@@ -51,7 +51,7 @@ final class StaticServerIntegrationTests: XCTestCase {
 
     func testIndexFallback() async throws {
         try write("sub/index.html", "<h1>hi</h1>")
-        let port = try await start()
+        let port = try await start(ServeOptions(liveReload: false))
         XCTAssertEqual(RawHTTP.get(port: port, "/sub/")?.text, "<h1>hi</h1>")
     }
 
@@ -93,7 +93,7 @@ final class StaticServerIntegrationTests: XCTestCase {
 
     func testUnicodeFilename() async throws {
         try write("my file ü.html", "ok")
-        let port = try await start()
+        let port = try await start(ServeOptions(liveReload: false))
         XCTAssertEqual(RawHTTP.get(port: port, "/my%20file%20%C3%BC.html")?.text, "ok")
     }
 
@@ -128,7 +128,7 @@ final class StaticServerIntegrationTests: XCTestCase {
 
     func testSPADeepLinkReturnsIndex200() async throws {
         try write("index.html", "<app/>")
-        let port = try await start()
+        let port = try await start(ServeOptions(liveReload: false))
         let r = try XCTUnwrap(RawHTTP.get(port: port, "/users/42", headers: "Accept: text/html,application/xhtml+xml\r\n"))
         XCTAssertEqual(r.status, 200)
         XCTAssertEqual(r.text, "<app/>")
