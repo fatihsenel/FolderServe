@@ -1,0 +1,7 @@
+.build/
+*.xcodeproj
+DerivedData/
+.DS_Store
+.claude-flow/
+.swarm/
+.superpowers/
