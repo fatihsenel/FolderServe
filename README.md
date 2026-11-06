@@ -44,4 +44,6 @@ xcodebuild test -scheme FolderServe -destination 'platform=macOS'        # app: 
 - The app is sandboxed: it can only read folders you drop or pick. Dropping a single *file* grants access
   to that file only, so sibling files of a dropped file may not be readable.
 - Dropping onto the menu bar *icon* itself is not supported (SwiftUI `MenuBarExtra`); drop on the popover instead.
+- Requests whose `Host` header is not a loopback name (`localhost`, `*.localhost`, `127.x.x.x`, `[::1]`) get 403, to block DNS-rebinding
+  attacks from web pages. This also means tunnels that forward a public hostname (ngrok etc.) are rejected.
 - HTTP only (no HTTPS), no LAN access, no CSS hot-swap — see the spec's out-of-scope list.

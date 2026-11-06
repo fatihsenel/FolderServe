@@ -85,6 +85,33 @@ final class StaticServerIntegrationTests: XCTestCase {
         XCTAssertTrue(r.text.contains("404"))
     }
 
+    func testForeignHostHeaderIsRejectedEvenForExistingFiles() async throws {
+        try write("secret.txt", "s3cret")
+        let port = try await start()
+        for host in ["evil.example.com", "evil.example.com:\(port)", "192.168.1.5"] {
+            let r = try XCTUnwrap(RawHTTP.request(port: port, "GET /secret.txt HTTP/1.1\r\nHost: \(host)\r\n\r\n"))
+            XCTAssertEqual(r.status, 403, host)
+            XCTAssertFalse(r.text.contains("s3cret"))
+        }
+    }
+
+    func testLoopbackHostHeadersAndMissingHostAreServed() async throws {
+        try write("a.txt", "ok")
+        let port = try await start()
+        for host in ["localhost", "localhost:\(port)", "127.0.0.1:\(port)", "[::1]:\(port)", "site.localhost"] {
+            XCTAssertEqual(RawHTTP.request(port: port, "GET /a.txt HTTP/1.1\r\nHost: \(host)\r\n\r\n")?.status, 200, host)
+        }
+        XCTAssertEqual(RawHTTP.request(port: port, "GET /a.txt HTTP/1.0\r\n\r\n")?.status, 200)
+    }
+
+    func testRedirectLocationIsPercentEncoded() async throws {
+        try write("my dir/a.txt", "x")
+        try write("100%/a.txt", "x")
+        let port = try await start()
+        XCTAssertEqual(RawHTTP.get(port: port, "/my%20dir")?.headers["location"], "/my%20dir/")
+        XCTAssertEqual(RawHTTP.get(port: port, "/100%25")?.headers["location"], "/100%25/")
+    }
+
     func testQueryStringIgnoredForLookup() async throws {
         try write("app.js", "1")
         let port = try await start()
@@ -200,7 +227,7 @@ final class StaticServerIntegrationTests: XCTestCase {
         XCTAssertEqual(partial.body.count, 1_048_576)
 
         let before = Self.footprint()
-        _ = RawHTTP.request(port: port, "GET /big.bin HTTP/1.1\r\nHost: x\r\n\r\n", readLimit: 64 * 1024)
+        _ = RawHTTP.request(port: port, "GET /big.bin HTTP/1.1\r\nHost: localhost\r\n\r\n", readLimit: 64 * 1024)
         try await Task.sleep(nanoseconds: 500_000_000)
         XCTAssertLessThan(Self.footprint(), before + 150 * 1024 * 1024, "file must be streamed, not loaded")
 

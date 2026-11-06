@@ -33,7 +33,7 @@ final class LiveReloadIntegrationTests: XCTestCase {
     private func openSSE(port: UInt16) throws -> Int32 {
         let fd = RawHTTP.openSocket(host: "127.0.0.1", port: port)
         XCTAssertGreaterThanOrEqual(fd, 0)
-        let req = Array("GET /__reload HTTP/1.1\r\nHost: x\r\nAccept: text/event-stream\r\n\r\n".utf8)
+        let req = Array("GET /__reload HTTP/1.1\r\nHost: localhost\r\nAccept: text/event-stream\r\n\r\n".utf8)
         _ = send(fd, req, req.count, 0)
         let head = readSSE(fd, until: ": connected", timeout: 3)
         XCTAssertTrue(head.contains("text/event-stream"), "SSE headers: \(head)")
@@ -101,6 +101,12 @@ final class LiveReloadIntegrationTests: XCTestCase {
         XCTAssertFalse(RawHTTP.get(port: port, "/index.html")?.text.contains(marker) ?? true)
         server.updateOptions(ServeOptions(liveReload: true))
         XCTAssertTrue(RawHTTP.get(port: port, "/index.html")?.text.contains(marker) ?? false)
+    }
+
+    func testReloadEndpointRejectsForeignHost() async throws {
+        let port = try await start()
+        let r = try XCTUnwrap(RawHTTP.request(port: port, "GET /__reload HTTP/1.1\r\nHost: evil.example.com\r\n\r\n"))
+        XCTAssertEqual(r.status, 403)
     }
 
     func testFileChangeSendsReloadEvent() async throws {

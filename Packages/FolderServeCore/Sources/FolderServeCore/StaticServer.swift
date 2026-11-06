@@ -157,6 +157,10 @@ public final class StaticServer: @unchecked Sendable {
     // MARK: - Responses
 
     private func respond(_ conn: NWConnection, _ req: HTTPRequest) {
+        guard HostPolicy.isAllowed(req.headers["host"]) else {
+            sendPage(conn, status: 403, message: "Host not allowed", method: req.method, path: req.path, head: req.method == "HEAD")
+            return
+        }
         if req.method == "GET", req.path == "/__reload" {
             handleReloadStream(conn)
             return
@@ -177,7 +181,8 @@ public final class StaticServer: @unchecked Sendable {
         case .notFound:
             sendPage(conn, status: 404, message: "Not found: \(req.path)", method: req.method, path: req.path, head: isHead)
         case .redirect(let location):
-            let target = location + (req.rawQuery.map { "?" + $0 } ?? "")
+            let encoded = location.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? location
+            let target = encoded + (req.rawQuery.map { "?" + $0 } ?? "")
             sendPage(conn, status: 301, message: "Moved", method: req.method, path: req.path, head: isHead,
                      extra: ["Location": target])
         case .directoryListing(let dir):
