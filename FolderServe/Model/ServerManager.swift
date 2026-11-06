@@ -226,3 +226,13 @@ final class ServerManager {
         return url
     }
 }
+
+#if DEBUG
+extension ServerManager {
+    /// Seeds state for SwiftUI previews and snapshot tests without starting real servers.
+    func loadPreview(entries: [ServerEntry], statuses: [UUID: ServerStatus]) {
+        self.entries = entries
+        self.statuses = statuses
+    }
+}
+#endif
