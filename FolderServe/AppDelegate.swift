@@ -6,6 +6,20 @@ enum AppServices {
 }
 
 final class FolderServeAppDelegate: NSObject, NSApplicationDelegate {
+    private static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
+    /// Restores servers at launch, independent of whether the main window is shown
+    /// (the app can live in the menu bar only).
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard !Self.isRunningTests else { return }
+        MainActor.assumeIsolated { Self.restoreServers(manager: AppServices.manager) }
+    }
+
+    @MainActor
+    static func restoreServers(manager: ServerManager) {
+        if manager.startServersAtLaunch { manager.startAutoStartEntries() }
+    }
+
     /// Folders/files dropped on the Dock icon, or passed via `open -a FolderServe <path>`.
     func application(_ application: NSApplication, open urls: [URL]) {
         Task { @MainActor in

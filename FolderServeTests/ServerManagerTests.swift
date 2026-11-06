@@ -182,7 +182,9 @@ final class ServerManagerTests: XCTestCase {
     }
 
     func testGlobalDotfilesToggleAppliesToAllEntriesAndRunningServers() async throws {
-        let suite = UserDefaults(suiteName: "fs-test-\(UUID().uuidString)")!
+        let suiteName = "fs-test-\(UUID().uuidString)"
+        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let suite = UserDefaults(suiteName: suiteName)!
         manager = ServerManager(store: store, defaultStartPort: startPort, defaults: suite)
         let f = try folder("a")
         try "secret".write(to: f.appendingPathComponent(".env"), atomically: true, encoding: .utf8)
@@ -203,7 +205,9 @@ final class ServerManagerTests: XCTestCase {
     }
 
     func testGlobalSettingsPersistInDefaults() throws {
-        let suite = UserDefaults(suiteName: "fs-test-\(UUID().uuidString)")!
+        let suiteName = "fs-test-\(UUID().uuidString)"
+        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let suite = UserDefaults(suiteName: suiteName)!
         let m = ServerManager(store: store, defaultStartPort: startPort, defaults: suite)
         XCTAssertTrue(m.startServersAtLaunch)
         XCTAssertFalse(m.serveDotfiles)
