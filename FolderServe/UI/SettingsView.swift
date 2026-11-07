@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(ServerManager.self) private var manager
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
+    @State private var showSplash = SplashSettings.enabled
 
     var body: some View {
         @Bindable var manager = manager
@@ -22,6 +23,12 @@ struct SettingsView: View {
                 SettingRow(title: "Launch at login",
                            detail: loginError ?? "Open FolderServe when you sign in to your Mac.",
                            isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
+                Divider().opacity(0.4)
+                SettingRow(title: "Show splash screen",
+                           detail: "A short animation when the app opens. Skipped when launched at login.",
+                           isOn: Binding(get: { showSplash }, set: { showSplash = $0; SplashSettings.enabled = $0 }))
+                Button("Preview splash screen") { SplashController.shared.show() }
+                    .controlSize(.small)
             }
             .card()
             Text("Servers listen on 127.0.0.1 only, so other devices on your network cannot reach them.")

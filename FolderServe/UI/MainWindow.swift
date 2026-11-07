@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainWindow: View {
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.isSnapshotRendering) private var isSnapshot
     @State private var selection: SidebarItem
 
     init(initialSelection: SidebarItem = .servers) {
@@ -23,5 +24,6 @@ struct MainWindow: View {
         }
         .background(Theme.background(scheme).ignoresSafeArea())
         .frame(minWidth: 860, minHeight: 560)
+        .background { if !isSnapshot { WindowReader { SplashGate.shared.hideIfNeeded($0) } } }
     }
 }

@@ -49,4 +49,17 @@ final class SnapshotTests: XCTestCase {
             try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-\(name).png"))
         }
     }
+
+    func testRenderSplashSnapshots() throws {
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        for (label, time) in [("early", 0.9), ("late", 2.3)] {
+            let renderer = ImageRenderer(content: SplashView(time: time).padding(30).background(Color(white: 0.1)))
+            renderer.scale = 2
+            let image = try XCTUnwrap(renderer.nsImage)
+            let tiff = try XCTUnwrap(image.tiffRepresentation)
+            let png = try XCTUnwrap(NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]))
+            XCTAssertGreaterThan(png.count, 10_000)
+            try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("splash-signal-\(label).png"))
+        }
+    }
 }
