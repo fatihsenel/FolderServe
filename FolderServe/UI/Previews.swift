@@ -11,7 +11,9 @@ enum PreviewData {
             ServerEntry(id: UUID(), bookmark: Data(), folderPath: "/Users/me/Projects/\(name)", preferredPort: nil,
                         options: ServeOptions(), autoStart: true)
         }
-        let a = entry("portfolio-site"), b = entry("react-dashboard"), c = entry("old-docs"), d = entry("blog"), e = entry("new-folder")
+        var a = entry("portfolio-site")
+        a.options.proxyRules = [ProxyRule(prefix: "/uiapi", target: "https://localhost:5003")]
+        let b = entry("react-dashboard"), c = entry("old-docs"), d = entry("blog"), e = entry("new-folder")
         let now = Date()
         func line(_ id: UUID, _ method: String, _ path: String, _ status: Int, _ bytes: Int64, _ ago: TimeInterval) -> LogLine {
             LogLine(serverID: id, entry: RequestLogEntry(date: now.addingTimeInterval(-ago), method: method, path: path, status: status, bytes: bytes))

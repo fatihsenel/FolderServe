@@ -65,5 +65,25 @@ Each folder has a **CORS** switch (off by default). When on, responses carry
 origin (for example an app on `localhost:4200`) can read files served here.
 
 Turning it on lets *any* website open in your browser read those files, so leave it off unless you need it.
-It does not help with errors from calling an API on another origin from your served app: that server must
-allow your origin, or the request must go through a proxy.
+It does not help with errors from calling an API on another origin from your served app: for that, use the
+API proxy below.
+
+## API proxy
+
+The **Proxy** button on a folder card forwards requests that start with a prefix to another server, so the
+browser only ever talks to one origin and CORS does not apply (like the proxy in Vite or Angular's dev server).
+
+Example: `/uiapi` → `https://localhost:5003` sends `/uiapi/Account/Login` to
+`https://localhost:5003/uiapi/Account/Login`. Tick "Remove prefix" to send `/Account/Login` instead.
+
+- Methods: GET, POST, PUT, PATCH, DELETE, HEAD (request bodies up to 32 MB). Responses are streamed.
+- Rules take precedence over files in the folder; invalid rules are ignored.
+- Self-signed certificates are accepted for `localhost` / `127.x` targets only (ASP.NET Core dev certificate).
+- `Origin` and `Referer` are rewritten to the target. Redirects are not followed; a `Location` pointing at the
+  target is turned into a local path.
+- `Set-Cookie`: `Secure` and `Domain` are removed and `SameSite=None` becomes `Lax`, because the browser reaches
+  the proxy over plain http.
+- Requests from other origins (`Origin` or `Sec-Fetch-Site` not same-origin) get 403 unless CORS is on for the
+  folder, so a web page cannot drive your backend through the proxy.
+- Not supported: WebSockets, chunked request bodies, HTTP/2 to the browser.
+- The app allows plain-http targets (`NSAllowsArbitraryLoads`), because the target is whatever you configure.

@@ -20,6 +20,9 @@ public final class StaticServer: @unchecked Sendable {
     private var connHeaders: [ObjectIdentifier: [String: String]] = [:]
     private var _onRequest: (@Sendable (RequestLogEntry) -> Void)?
     private let hub = ReloadHub()
+    /// Seconds to wait for a proxied API before answering 504 (tests lower this).
+    var proxyTimeout: TimeInterval = 60
+    private lazy var forwarder = ProxyForwarder(timeout: proxyTimeout)
     private var watcher: FolderWatcher?
     private var pingTimer: DispatchSourceTimer?
 
@@ -150,15 +153,15 @@ public final class StaticServer: @unchecked Sendable {
                 if isComplete { conn.cancel() } else { self.receive(conn, buffer: buf) }
             case .malformed:
                 self.sendPage(conn, status: 400, message: "Bad request", method: "GET", path: "-", head: false)
-            case .request(let req, _):
-                self.respond(conn, req)
+            case .request(let req, let consumed):
+                self.respond(conn, req, buffered: buf.dropFirst(consumed))
             }
         }
     }
 
     // MARK: - Responses
 
-    private func respond(_ conn: NWConnection, _ req: HTTPRequest) {
+    private func respond(_ conn: NWConnection, _ req: HTTPRequest, buffered: Data = Data()) {
         guard HostPolicy.isAllowed(req.headers["host"]) else {
             sendPage(conn, status: 403, message: "Host not allowed", method: req.method, path: req.path, head: req.method == "HEAD")
             return
@@ -175,6 +178,10 @@ public final class StaticServer: @unchecked Sendable {
                          head: true, extra: Self.preflightHeaders(for: req))
                 return
             }
+        }
+        if let rule = currentOptions.proxyRules.first(where: { $0.problem == nil && $0.matches(path: req.path) }) {
+            proxy(conn, req, rule: rule, buffered: Data(buffered), corsOn: corsOn)
+            return
         }
         guard req.method == "GET" || req.method == "HEAD" else {
             sendPage(conn, status: 405, message: "Method not allowed", method: req.method, path: req.path,
@@ -203,6 +210,45 @@ public final class StaticServer: @unchecked Sendable {
                      method: req.method, path: req.path, head: isHead)
         case .file(let url):
             sendFile(conn, url: url, req: req, head: isHead, liveReload: opts.liveReload)
+        }
+    }
+
+    // MARK: - Proxy
+
+    private func proxy(_ conn: NWConnection, _ req: HTTPRequest, rule: ProxyRule, buffered: Data, corsOn: Bool) {
+        let isHead = req.method == "HEAD"
+        if !corsOn && !ProxyRule.isSameOriginRequest(headers: req.headers) {
+            sendPage(conn, status: 403, message: "Cross-origin request blocked. Turn on CORS for this folder if another origin needs the API.",
+                     method: req.method, path: req.path, head: isHead)
+            return
+        }
+        if let te = req.headers["transfer-encoding"], !te.lowercased().contains("identity") {
+            sendPage(conn, status: 501, message: "Chunked request bodies are not supported by the proxy",
+                     method: req.method, path: req.path, head: isHead)
+            return
+        }
+        let need = Int(req.headers["content-length"] ?? "") ?? 0
+        guard need >= 0, need <= ProxyForwarder.maxRequestBody else {
+            sendPage(conn, status: 413, message: "Request body too large for the proxy (limit 32 MB)",
+                     method: req.method, path: req.path, head: isHead)
+            return
+        }
+        let extra = connHeaders[ObjectIdentifier(conn)] ?? [:]
+        readBody(conn, have: buffered, need: need) { [weak self] body in
+            guard let self, let body else { return }
+            self.forwarder.forward(conn: conn, req: req, body: body, rule: rule, extraHeaders: extra,
+                                   log: { [weak self] in self?.lockedLog($0) },
+                                   fail: { [weak self] status, message in
+                                       self?.sendPage(conn, status: status, message: message, method: req.method, path: req.path, head: isHead)
+                                   })
+        }
+    }
+
+    private func readBody(_ conn: NWConnection, have: Data, need: Int, then: @escaping (Data?) -> Void) {
+        if have.count >= need { then(Data(have.prefix(need))); return }
+        conn.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
+            if error != nil || (data == nil && isComplete) { conn.cancel(); then(nil); return }
+            self?.readBody(conn, have: have + (data ?? Data()), need: need, then: then)
         }
     }
 
@@ -340,6 +386,10 @@ public final class StaticServer: @unchecked Sendable {
         case 200: return "OK"
         case 204: return "No Content"
         case 206: return "Partial Content"
+        case 413: return "Payload Too Large"
+        case 501: return "Not Implemented"
+        case 502: return "Bad Gateway"
+        case 504: return "Gateway Timeout"
         case 301: return "Moved Permanently"
         case 400: return "Bad Request"
         case 403: return "Forbidden"

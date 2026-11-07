@@ -29,25 +29,16 @@ struct ServerCardView: View {
                     }
                 }
                 Divider().opacity(0.4)
-                HStack(spacing: 18) {
-                    Toggle("Live reload", isOn: binding(\.liveReload, entry)).toggleStyle(GlowToggleStyle())
-                    Toggle("SPA mode", isOn: binding(\.spaMode, entry)).toggleStyle(GlowToggleStyle())
-                        .help("Serve index.html for unknown paths so client-side routers work")
-                    HStack(spacing: 4) {
-                        Toggle("CORS", isOn: binding(\.cors, entry)).toggleStyle(GlowToggleStyle())
-                            .help("Let pages from other origins (e.g. an app on localhost:4200) read these files. Adds Access-Control-Allow-Origin and answers preflight requests.")
-                        if entry.options.cors {
-                            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11))
-                                .foregroundStyle(Theme.warning)
-                                .help("CORS is on: any website open in your browser can read the files served here. Turn it off when you don't need it.")
-                                .accessibilityLabel("Warning: any website can read these files")
-                        }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 18) {
+                        togglesGroup(entry)
+                        Spacer(minLength: 8)
+                        buttonsGroup(entry)
                     }
-                    Spacer()
-                    Button { open() } label: { Label("Open", systemImage: "safari") }.disabled(!isRunning)
-                    Button { copyURL() } label: { Label("Copy URL", systemImage: "doc.on.doc") }.disabled(!isRunning)
-                    Button(role: .destructive) { manager.remove(entryID) } label: { Image(systemName: "trash") }
-                        .help("Remove this folder")
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 18) { togglesGroup(entry) }
+                        HStack(spacing: 10) { Spacer(minLength: 0); buttonsGroup(entry) }
+                    }
                 }
                 .controlSize(.small)
                 .buttonStyle(.bordered)
@@ -56,11 +47,49 @@ struct ServerCardView: View {
         }
     }
 
+
+    @ViewBuilder private func togglesGroup(_ entry: ServerEntry) -> some View {
+                Toggle("Live reload", isOn: binding(\.liveReload, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
+                Toggle("SPA mode", isOn: binding(\.spaMode, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
+                    .help("Serve index.html for unknown paths so client-side routers work")
+                HStack(spacing: 4) {
+                    Toggle("CORS", isOn: binding(\.cors, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
+                        .help("Let pages from other origins (e.g. an app on localhost:4200) read these files. Adds Access-Control-Allow-Origin and answers preflight requests.")
+                    if entry.options.cors {
+                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11))
+                            .foregroundStyle(Theme.warning)
+                            .help("CORS is on: any website open in your browser can read the files served here. Turn it off when you don't need it.")
+                            .accessibilityLabel("Warning: any website can read these files")
+                    }
+                }
+    }
+
+    @ViewBuilder private func buttonsGroup(_ entry: ServerEntry) -> some View {
+        Group {
+                    Button { showingProxy = true } label: {
+                let n = entry.options.proxyRules.count
+                Label(n == 0 ? "Proxy" : "Proxy · \(n)", systemImage: "arrow.triangle.swap")
+            }
+            .help("Forward /api-style requests to another server (no CORS errors)")
+            .popover(isPresented: $showingProxy, arrowEdge: .bottom) {
+                ProxyEditorView(entryID: entryID, initialRules: entry.options.proxyRules)
+            }
+            Button { open() } label: { Label("Open", systemImage: "safari") }.disabled(!isRunning)
+            Button { copyURL() } label: { Label("Copy URL", systemImage: "doc.on.doc") }.disabled(!isRunning)
+            Button(role: .destructive) { manager.remove(entryID) } label: { Image(systemName: "trash") }
+                .help("Remove this folder")
+        }
+        .controlSize(.small)
+        .buttonStyle(.bordered)
+        .fixedSize()
+    }
+
     @State private var isEditing = false
     @State private var draft = ""
     @State private var hoveringTitle = false
     @State private var cancelled = false
     @FocusState private var titleFocused: Bool
+    @State private var showingProxy = false
     @State private var outsideClick = OutsideClickMonitor()
 
     @ViewBuilder private func title(for entry: ServerEntry) -> some View {

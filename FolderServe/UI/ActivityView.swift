@@ -47,6 +47,9 @@ struct ActivityView: View {
                     Text(String(line.entry.status))
                         .foregroundStyle(color(for: line.entry.status)).frame(width: 40, alignment: .leading)
                     Text(line.entry.path).lineLimit(1).truncationMode(.middle)
+                    if let note = line.entry.note {
+                        Text(note).foregroundStyle(Theme.accent).lineLimit(1).truncationMode(.middle)
+                    }
                     Spacer(minLength: 8)
                     Text(ByteCountFormatter.string(fromByteCount: line.entry.bytes, countStyle: .file))
                         .foregroundStyle(.secondary)

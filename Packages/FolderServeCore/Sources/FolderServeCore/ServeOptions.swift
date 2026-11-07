@@ -7,12 +7,16 @@ public struct ServeOptions: Codable, Equatable, Sendable {
     /// Send CORS headers (and answer preflight requests) so pages from other origins can read the files.
     /// Off by default: with it on, any website open in your browser can read what is served.
     public var cors = false
+    /// Requests under a rule's prefix are forwarded to its target instead of being served from the folder.
+    public var proxyRules: [ProxyRule] = []
 
-    public init(spaMode: Bool = true, liveReload: Bool = true, serveDotfiles: Bool = false, cors: Bool = false) {
+    public init(spaMode: Bool = true, liveReload: Bool = true, serveDotfiles: Bool = false, cors: Bool = false,
+                proxyRules: [ProxyRule] = []) {
         self.spaMode = spaMode
         self.liveReload = liveReload
         self.serveDotfiles = serveDotfiles
         self.cors = cors
+        self.proxyRules = proxyRules
     }
 
     // Older saved settings have no "cors" key.
@@ -22,5 +26,6 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         liveReload = try c.decodeIfPresent(Bool.self, forKey: .liveReload) ?? true
         serveDotfiles = try c.decodeIfPresent(Bool.self, forKey: .serveDotfiles) ?? false
         cors = try c.decodeIfPresent(Bool.self, forKey: .cors) ?? false
+        proxyRules = try c.decodeIfPresent([ProxyRule].self, forKey: .proxyRules) ?? []
     }
 }

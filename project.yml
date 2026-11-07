@@ -16,6 +16,9 @@ targets:
     info:
       path: FolderServe/Info.plist
       properties:
+        # The API proxy forwards to whatever URL the user configures, including plain-http hosts.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
         CFBundleDocumentTypes:
           - CFBundleTypeName: Folder
             CFBundleTypeRole: Viewer
