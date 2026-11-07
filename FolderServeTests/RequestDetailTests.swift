@@ -19,6 +19,65 @@ final class RequestDetailTests: XCTestCase {
         XCTAssertTrue(RequestDetailView.displayText(Data(#"[1,2]"#.utf8), contentType: nil).contains("\n"))
     }
 
+    func testJSONLeavesGetTheirTextAndColour() throws {
+        let root = try XCTUnwrap(RequestDetailView.jsonRoot(Data(#"{"s":"a/b","n":36,"f":9.5,"t":true,"z":null}"#.utf8)) as? [String: Any])
+        let s = RequestDetailView.jsonLeaf(root["s"]!), n = RequestDetailView.jsonLeaf(root["n"]!), f = RequestDetailView.jsonLeaf(root["f"]!)
+        let t = RequestDetailView.jsonLeaf(root["t"]!), z = RequestDetailView.jsonLeaf(root["z"]!)
+        XCTAssertEqual(s.text, "\"a/b\""); XCTAssertEqual(s.color, RequestDetailView.jsonStringColor)
+        XCTAssertEqual(n.text, "36"); XCTAssertEqual(n.color, RequestDetailView.jsonNumberColor)
+        XCTAssertEqual(f.text, "9.5")
+        XCTAssertEqual(t.text, "true"); XCTAssertEqual(t.color, RequestDetailView.jsonLiteralColor)
+        XCTAssertEqual(z.text, "null"); XCTAssertEqual(z.color, RequestDetailView.jsonLiteralColor)
+    }
+
+    func testOneAndZeroAreNumbersNotBooleans() throws {
+        let root = try XCTUnwrap(RequestDetailView.jsonRoot(Data(#"{"a":1,"b":0,"c":false}"#.utf8)) as? [String: Any])
+        XCTAssertEqual(RequestDetailView.jsonLeaf(root["a"]!).text, "1")
+        XCTAssertEqual(RequestDetailView.jsonLeaf(root["b"]!).text, "0")
+        XCTAssertEqual(RequestDetailView.jsonLeaf(root["c"]!).text, "false")
+    }
+
+    func testStringsAreQuotedAndEscaped() {
+        XCTAssertEqual(RequestDetailView.jsonQuoted("a\"b\nc/d"), #""a\"b\nc/d""#)
+    }
+
+    func testOnlyJSONObjectsAndArraysBecomeATree() {
+        XCTAssertNil(RequestDetailView.jsonRoot(Data("{oops".utf8)))
+        XCTAssertNil(RequestDetailView.jsonRoot(Data("hello".utf8)))
+        XCTAssertNil(RequestDetailView.jsonRoot(Data("42".utf8)))
+        XCTAssertNil(RequestDetailView.jsonRoot(Data("a=1&b=2".utf8)))
+        XCTAssertNotNil(RequestDetailView.jsonRoot(Data("[1,2]".utf8)))
+        XCTAssertNil(RequestDetailView.jsonRoot(Data(repeating: 0x20, count: RequestDetailView.jsonHighlightLimit) + Data("[1]".utf8)), "too big for a tree")
+    }
+
+    /// Renders the JSON tree in several fold states (frames for a demo animation) to $FOLDERSERVE_SNAPSHOT_DIR.
+    func testRenderJSONFoldFrames() throws {
+        let json = #"{"ok":true,"user":{"id":42,"name":"Ada","roles":["ops","dev"],"address":{"city":"Istanbul","zip":"34000"}},"items":[{"id":1},{"id":2}]}"#
+        let root = try XCTUnwrap(RequestDetailView.jsonRoot(Data(json.utf8)))
+        let frames: [(String, Set<String>)] = [
+            ("0-open", []),
+            ("1-address", ["/user/address"]),
+            ("2-roles", ["/user/address", "/user/roles"]),
+            ("3-items", ["/user/address", "/user/roles", "/items"]),
+            ("4-user", ["/user", "/items"]),
+            ("5-all", ["/user", "/items", "/ok"]),
+        ]
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        for (name, folded) in frames {
+            let view = JSONTreeView(root: root, copyText: json, folded: folded)
+                .padding(14)
+                .frame(width: 480, alignment: .topLeading)
+                .frame(height: 360, alignment: .topLeading)
+                .background(Theme.background(.dark))
+                .environment(\.colorScheme, .dark)
+                .environment(\.isSnapshotRendering, true)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 2
+            let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+            try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("fold-\(name).png"))
+        }
+    }
+
     func testBrokenJSONIsShownAsIs() {
         XCTAssertEqual(RequestDetailView.displayText(Data("{oops".utf8), contentType: "application/json"), "{oops")
     }
