@@ -18,6 +18,8 @@ struct ServerCardView: View {
                         HStack(spacing: 8) {
                             title(for: entry)
                             if let kind = manager.projectKinds[entryID] { ProjectBadge(kind: kind) }
+                            if entry.options.https { OptionBadge(text: "HTTPS") }
+                            if entry.options.cors { OptionBadge(text: "CORS", warning: true).help("CORS is on: any website open in your browser can read the files served here.") }
                             if entry.startsAlways {
                                 Image(systemName: "pin.fill").font(.system(size: 11)).foregroundStyle(.secondary)
                                     .help("Always starts when FolderServe opens")
@@ -55,43 +57,22 @@ struct ServerCardView: View {
 
 
     @ViewBuilder private func togglesGroup(_ entry: ServerEntry) -> some View {
-                Toggle("Live reload", isOn: binding(\.liveReload, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
-                Toggle("SPA mode", isOn: binding(\.spaMode, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
-                    .help("Serve index.html for unknown paths so client-side routers work")
-                Toggle("Cache", isOn: binding(\.caching, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
-                    .help("Let the browser keep files and re-check them with an ETag, so reloads are faster. Pages with live reload are never cached.")
-                Toggle("HTTPS", isOn: binding(\.https, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
-                    .help("Serve over https:// with a self-signed localhost certificate, for features that need a secure context. Your browser shows a one-time warning for it.")
-                HStack(spacing: 4) {
-                    Toggle("CORS", isOn: binding(\.cors, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
-                        .help("Let pages from other origins (e.g. an app on localhost:4200) read these files. Adds Access-Control-Allow-Origin and answers preflight requests.")
-                    if entry.options.cors {
-                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11))
-                            .foregroundStyle(Theme.warning)
-                            .help("CORS is on: any website open in your browser can read the files served here. Turn it off when you don't need it.")
-                            .accessibilityLabel("Warning: any website can read these files")
-                    }
-                }
-                HStack(spacing: 4) {
-                    Toggle("Share", isOn: binding(\.shareOnNetwork, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
-                        .help("Make this folder reachable from other devices on your network (phone, tablet). Shows a QR code when running.")
-                    if entry.options.shareOnNetwork {
-                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11))
-                            .foregroundStyle(Theme.warning)
-                            .help("Sharing is on: anyone on your network can open this folder (and use its proxy rules). Turn it off when you are done.")
-                            .accessibilityLabel("Warning: reachable by everyone on your network")
-                    }
-                }
+        Toggle("Live reload", isOn: binding(\.liveReload, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
+        HStack(spacing: 4) {
+            Toggle("Share", isOn: binding(\.shareOnNetwork, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
+                .help("Make this folder reachable from other devices on your network (phone, tablet). Shows a QR code when running.")
+            if entry.options.shareOnNetwork {
+                Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11))
+                    .foregroundStyle(Theme.warning)
+                    .help("Sharing is on: anyone on your network can open this folder (and use its proxy rules). Turn it off when you are done.")
+                    .accessibilityLabel("Warning: reachable by everyone on your network")
+            }
+        }
     }
 
     @ViewBuilder private func buttonsGroup(_ entry: ServerEntry) -> some View {
         Group {
-            if entry.options.shareOnNetwork && isRunning {
-                Button { showingShare = true } label: { Label("QR", systemImage: "qrcode") }
-                    .help("Open this folder on your phone")
-                    .popover(isPresented: $showingShare, arrowEdge: .bottom) { SharePopoverView(entryID: entryID) }
-            }
-                    Button { showingProxy = true } label: {
+            Button { showingProxy = true } label: {
                 let n = entry.options.proxyRules.count
                 Label(n == 0 ? "Proxy" : "Proxy · \(n)", systemImage: "arrow.triangle.swap")
             }
@@ -99,8 +80,13 @@ struct ServerCardView: View {
             .popover(isPresented: $showingProxy, arrowEdge: .bottom) {
                 ProxyEditorView(entryID: entryID, initialRules: entry.options.proxyRules)
             }
+            Button { showingOptions = true } label: {
+                let n = entry.options.enabledExtrasCount
+                Label(n == 0 ? "Options" : "Options · \(n)", systemImage: "slider.horizontal.3")
+            }
+            .help("SPA mode, Cache, HTTPS, CORS")
+            .popover(isPresented: $showingOptions, arrowEdge: .bottom) { OptionsPopoverView(entryID: entryID) }
             Button { open() } label: { Label("Open", systemImage: "safari") }.disabled(!isRunning)
-            Button { copyURL() } label: { Label("Copy URL", systemImage: "doc.on.doc") }.disabled(!isRunning)
             Button(role: .destructive) { manager.requestRemoval(entryID) } label: { Image(systemName: "trash") }
                 .help("Remove this folder")
         }
@@ -116,6 +102,7 @@ struct ServerCardView: View {
     @FocusState private var titleFocused: Bool
     @State private var showingProxy = false
     @State private var showingShare = false
+    @State private var showingOptions = false
     @State private var outsideClick = OutsideClickMonitor()
 
     @ViewBuilder private func title(for entry: ServerEntry) -> some View {
@@ -197,9 +184,18 @@ struct ServerCardView: View {
         case .finding(let search):
             PortScanView(search: search)
         case .running(let port):
-            Button { open() } label: {
-                Text(manager.url(for: entryID)?.absoluteString ?? "http://127.0.0.1:\(String(port))/").font(.system(.callout, design: .monospaced))
-            }.buttonStyle(.link)
+            HStack(spacing: 8) {
+                Button { open() } label: {
+                    Text(manager.url(for: entryID)?.absoluteString ?? "http://127.0.0.1:\(String(port))/").font(.system(.callout, design: .monospaced))
+                }.buttonStyle(.link)
+                Button { copyURL() } label: { Image(systemName: "doc.on.doc").font(.system(size: 12)) }
+                    .buttonStyle(.borderless).help("Copy URL").accessibilityLabel("Copy URL")
+                if entry?.options.shareOnNetwork == true {
+                    Button { showingShare = true } label: { Image(systemName: "qrcode").font(.system(size: 13)) }
+                        .buttonStyle(.borderless).help("Open this folder on your phone").accessibilityLabel("Show QR code")
+                        .popover(isPresented: $showingShare, arrowEdge: .bottom) { SharePopoverView(entryID: entryID) }
+                }
+            }
         case .stopped:
             Text("Stopped").font(.callout).foregroundStyle(.secondary)
         case .error(let message):

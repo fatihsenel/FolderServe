@@ -60,6 +60,24 @@ final class SnapshotTests: XCTestCase {
         try render("settings-dark", populated: true, scheme: .dark, tab: .settings)
     }
 
+    func testRenderOptionsPopoverSnapshot() throws {
+        let manager = PreviewData.manager(populated: true)
+        let id = try XCTUnwrap(manager.entries.first?.id)
+        var o = try XCTUnwrap(manager.entries.first).options
+        o.cors = true
+        manager.setOptions(id, o)
+        let view = OptionsPopoverView(entryID: id)
+            .environment(manager).environment(\.colorScheme, .dark).environment(\.isSnapshotRendering, true)
+            .background(Color(white: 0.16))
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        let tiff = try XCTUnwrap(renderer.nsImage?.tiffRepresentation)
+        let png = try XCTUnwrap(NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-options-popover.png"))
+        print("SNAPSHOT:", dir + "snap-options-popover.png")
+    }
+
     func testRenderMenuBarSnapshots() throws {
         for (name, populated) in [("menubar-empty", false), ("menubar-populated", true)] {
             let view = MenuBarView()
