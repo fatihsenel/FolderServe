@@ -69,6 +69,10 @@ final class FakeUpstream: @unchecked Sendable {
             send(c, "HTTP/1.1 \(status)\r\n" + headers.map { $0 + "\r\n" }.joined() + "Content-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n" + body)
         }
         switch path {
+        case "/ws":   // upgrade, then echo every byte back until the peer hangs up
+            send(c, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n")
+            var tmp = [UInt8](repeating: 0, count: 4096)
+            while true { let n = read(c, &tmp, tmp.count); if n <= 0 { break }; _ = write(c, tmp, n) }
         case "/slow": sleep(3); respond("200 OK", [], "late")
         case "/redirect": respond("302 Found", ["Location: http://127.0.0.1:\(port)/landing"], "")
         case "/cookie":
