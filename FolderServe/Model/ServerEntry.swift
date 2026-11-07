@@ -15,7 +15,19 @@ struct ServerEntry: Codable, Identifiable, Equatable {
     var displayName: String { URL(fileURLWithPath: folderPath).lastPathComponent }
 }
 
+/// What the port search has found so far; drives the "finding a free port" animation.
+struct PortSearch: Equatable {
+    /// Ports that were checked and found in use, in the order they were tried.
+    var busy: [UInt16]
+    /// The port the server got, once known.
+    var landed: UInt16?
+    var began: Date
+    /// How long the search is shown for (it is held for at least this long).
+    var duration: TimeInterval
+}
+
 enum ServerStatus: Equatable {
+    case finding(PortSearch)
     case stopped
     case running(port: UInt16)
     case error(String)

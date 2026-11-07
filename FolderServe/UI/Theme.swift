@@ -11,6 +11,7 @@ enum Theme {
         switch status {
         case .running: return running
         case .stopped: return stopped
+        case .finding: return warning
         case .error: return failed
         case .folderMissing: return warning
         }
