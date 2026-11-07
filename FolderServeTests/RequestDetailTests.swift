@@ -94,6 +94,49 @@ final class RequestDetailTests: XCTestCase {
         XCTAssertEqual(ActivityView.durationColor(nil), .secondary)
     }
 
+    private func curlEntry(_ method: String, _ url: String, headers: [(String, String)] = [], body: Data? = nil) -> RequestLogEntry {
+        var e = RequestLogEntry(method: method, path: "/x", status: 200, bytes: 1)
+        e.url = url
+        e.requestHeaders = headers.map { HTTPHeaderField(name: $0.0, value: $0.1) }
+        e.requestBody = body
+        return e
+    }
+
+    func testCurlForAPlainGet() {
+        let cmd = RequestDetailView.curlCommand(for: curlEntry("GET", "http://127.0.0.1:8080/a?b=1",
+                                                              headers: [("Accept", "*/*"), ("Host", "127.0.0.1:8080"), ("Connection", "keep-alive")]))
+        XCTAssertEqual(cmd, "curl 'http://127.0.0.1:8080/a?b=1' \\\n  -H 'Accept: */*'")
+    }
+
+    func testCurlForAPostKeepsHeadersAndBodyAndEscapesQuotes() {
+        let cmd = RequestDetailView.curlCommand(for: curlEntry("POST", "http://127.0.0.1:8080/uiapi/Login",
+            headers: [("content-type", "application/json"), ("Content-Length", "20"), ("Accept-Encoding", "gzip, br")],
+            body: Data(#"{"name":"O'Neil"}"#.utf8)))
+        XCTAssertTrue(cmd.contains("-X POST"))
+        XCTAssertTrue(cmd.contains("-H 'content-type: application/json'"))
+        XCTAssertFalse(cmd.lowercased().contains("content-length"))
+        XCTAssertTrue(cmd.contains("--compressed"))
+        XCTAssertFalse(cmd.lowercased().contains("accept-encoding"))
+        XCTAssertTrue(cmd.contains(#"--data-raw '{"name":"O'\''Neil"}'"#), cmd)
+    }
+
+    func testCurlLeavesOutBodiesItCannotRepeatAndSaysSo() {
+        var cut = curlEntry("POST", "http://127.0.0.1:8080/a", body: Data("abc".utf8))
+        cut.requestBodyTruncated = true
+        XCTAssertFalse(RequestDetailView.curlCommand(for: cut).contains("--data-raw"))
+        XCTAssertTrue(RequestDetailView.curlCommand(for: cut).contains("# The request body was cut off"))
+        let binary = curlEntry("PUT", "http://127.0.0.1:8080/a", body: Data([0xff, 0xfe, 0x00]))
+        XCTAssertTrue(RequestDetailView.curlCommand(for: binary).contains("# The request body is binary"))
+    }
+
+    func testCurlAddsInsecureOnlyForLoopbackHttps() {
+        XCTAssertTrue(RequestDetailView.curlCommand(for: curlEntry("GET", "https://127.0.0.1:8443/")).contains("--insecure"))
+        XCTAssertTrue(RequestDetailView.curlCommand(for: curlEntry("GET", "https://localhost:5003/x")).contains("--insecure"))
+        XCTAssertFalse(RequestDetailView.curlCommand(for: curlEntry("GET", "https://example.com/")).contains("--insecure"))
+        XCTAssertFalse(RequestDetailView.curlCommand(for: curlEntry("GET", "http://127.0.0.1:8080/")).contains("--insecure"))
+        XCTAssertTrue(RequestDetailView.curlCommand(for: curlEntry("HEAD", "http://127.0.0.1:8080/")).contains("--head"))
+    }
+
     func testBrokenJSONIsShownAsIs() {
         XCTAssertEqual(RequestDetailView.displayText(Data("{oops".utf8), contentType: "application/json"), "{oops")
     }
