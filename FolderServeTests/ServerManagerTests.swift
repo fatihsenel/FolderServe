@@ -483,3 +483,13 @@ final class SharingTests: XCTestCase {
         XCTAssertGreaterThan(image?.size.width ?? 0, 100)
     }
 }
+
+final class OptionsSummaryTests: XCTestCase {
+    func testCountsOnlyTheSwitchesInsideTheOptionsPopover() {
+        XCTAssertEqual(ServeOptions().enabledExtrasCount, 1, "SPA mode is on by default")
+        XCTAssertEqual(ServeOptions(spaMode: false).enabledExtrasCount, 0)
+        XCTAssertEqual(ServeOptions(cors: true, caching: true, https: true).enabledExtrasCount, 4)
+        // Live reload and Share stay on the card, so they are not counted.
+        XCTAssertEqual(ServeOptions(spaMode: false, liveReload: true, shareOnNetwork: true).enabledExtrasCount, 0)
+    }
+}
