@@ -92,6 +92,19 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// The Add Folder button at rest and hovered.
+    func testRenderAddFolderButtonSnapshot() throws {
+        let view = HStack(spacing: 40) {
+            VStack(spacing: 10) { AddFolderButton(action: {}); Text("rest").font(.caption).foregroundStyle(.secondary) }
+            VStack(spacing: 10) { AddFolderButton(action: {}, initiallyHovering: true); Text("hover").font(.caption).foregroundStyle(.secondary) }
+        }
+        .padding(40).background(Theme.background(.dark)).environment(\.colorScheme, .dark)
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-add-folder-button.png"))
+    }
+
     func testRenderMainWindowSnapshots() throws {
         try render("empty-dark", populated: false, scheme: .dark)
         try render("populated-dark", populated: true, scheme: .dark)
