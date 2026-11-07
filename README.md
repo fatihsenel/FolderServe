@@ -144,6 +144,11 @@ Requests that no page made (no referer, `Sec-Fetch-Site: none`, empty destinatio
 extension does when it re-fetches a file to show it, are **hidden from the list** and from the category counts. A dashed
 pill under the category chips says how many are hidden; click it to show them (the choice is remembered).
 
+## Show in Finder
+
+Each card has a **Finder** button (also in the right-click menu on the folder's name) that opens the folder in Finder.
+Folders that are missing show no Finder button; use Relocate… instead.
+
 ## Dropping folders
 
 While you drag a folder over the window the list dims and a landing pad appears ("Drop to start serving"). On drop
