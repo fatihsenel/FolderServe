@@ -18,8 +18,8 @@ public final class StaticServer: @unchecked Sendable {
     private var connections: [ObjectIdentifier: NWConnection] = [:]
     /// Extra response headers (CORS) for the request currently being answered on a connection.
     private var connHeaders: [ObjectIdentifier: [String: String]] = [:]
-    /// Sec-Fetch-Dest of the request being answered, for the request log's category.
-    private var connDest: [ObjectIdentifier: String] = [:]
+    /// The request being answered on a connection (and when it began), for the request log.
+    private var connRequest: [ObjectIdentifier: (req: HTTPRequest, began: Date)] = [:]
     private var _onRequest: (@Sendable (RequestLogEntry) -> Void)?
     private let hub = ReloadHub()
     /// Seconds to wait for a proxied API before answering 504 (tests lower this).
@@ -136,7 +136,7 @@ public final class StaticServer: @unchecked Sendable {
         connections[id] = conn
         conn.stateUpdateHandler = { [weak self] state in
             switch state {
-            case .cancelled, .failed: self?.queue.async { self?.connections[id] = nil; self?.connHeaders[id] = nil; self?.connDest[id] = nil }
+            case .cancelled, .failed: self?.queue.async { self?.connections[id] = nil; self?.connHeaders[id] = nil; self?.connRequest[id] = nil }
             default: break
             }
         }
@@ -164,7 +164,7 @@ public final class StaticServer: @unchecked Sendable {
     // MARK: - Responses
 
     private func respond(_ conn: NWConnection, _ req: HTTPRequest, buffered: Data = Data()) {
-        connDest[ObjectIdentifier(conn)] = req.headers["sec-fetch-dest"]
+        connRequest[ObjectIdentifier(conn)] = (req, Date())
         guard HostPolicy.isAllowed(req.headers["host"]) else {
             sendPage(conn, status: 403, message: "Host not allowed", method: req.method, path: req.path, head: req.method == "HEAD")
             return
@@ -287,7 +287,7 @@ public final class StaticServer: @unchecked Sendable {
                     let base = rewritten ?? original
                     sendBody(conn, status: 200, contentType: MIMEType.forExtension(ext),
                              body: injectable ? ReloadScript.inject(into: base) : base, method: req.method, path: req.path,
-                             head: head, extra: ["Accept-Ranges": "bytes"])
+                             head: head, extra: ["Accept-Ranges": "bytes"], servedFile: url.path, rewritten: rewritten != nil)
                     return
                 }
             }
@@ -302,7 +302,8 @@ public final class StaticServer: @unchecked Sendable {
             return
         }
         headers["Content-Length"] = String(length)
-        log(req, status: status, bytes: length)
+        lockedLog(makeEntry(conn, method: req.method, path: req.path, status: status, bytes: length,
+                            responseHeaders: headers, servedFile: url.path))
         let headData = Data(responseHead(conn, status: status, headers: headers).utf8)
 
         if head || length == 0 {
@@ -342,12 +343,13 @@ public final class StaticServer: @unchecked Sendable {
     }
 
     private func sendBody(_ conn: NWConnection, status: Int, contentType: String, body: Data,
-                          method: String, path: String, head: Bool, extra: [String: String] = [:]) {
+                          method: String, path: String, head: Bool, extra: [String: String] = [:],
+                          servedFile: String? = nil, rewritten: Bool = false) {
         var headers = extra
         headers["Content-Type"] = contentType
         headers["Content-Length"] = String(body.count)
-        lockedLog(RequestLogEntry(method: method, path: path, status: status, bytes: Int64(body.count),
-                                  category: .classify(path: path, secFetchDest: connDest[ObjectIdentifier(conn)], proxied: false)))
+        lockedLog(makeEntry(conn, method: method, path: path, status: status, bytes: Int64(body.count),
+                            responseHeaders: headers, servedFile: servedFile, rewritten: rewritten))
         var out = Data(responseHead(conn, status: status, headers: headers).utf8)
         if !head { out.append(body) }
         sendFinal(conn, out)
@@ -358,9 +360,21 @@ public final class StaticServer: @unchecked Sendable {
                   completion: .contentProcessed { _ in conn.cancel() })
     }
 
-    private func log(_ req: HTTPRequest, status: Int, bytes: Int64) {
-        lockedLog(RequestLogEntry(method: req.method, path: req.path, status: status, bytes: bytes,
-                                  category: .classify(path: req.path, secFetchDest: req.headers["sec-fetch-dest"], proxied: false)))
+    /// Builds a log entry with everything known about the request on this connection.
+    private func makeEntry(_ conn: NWConnection, method: String, path: String, status: Int, bytes: Int64,
+                           responseHeaders: [String: String], servedFile: String? = nil, rewritten: Bool = false) -> RequestLogEntry {
+        let stored = connRequest[ObjectIdentifier(conn)]
+        var e = RequestLogEntry(method: method, path: path, status: status, bytes: bytes,
+                                category: .classify(path: path, secFetchDest: stored?.req.headers["sec-fetch-dest"], proxied: false))
+        if let stored {
+            e.url = stored.req.displayURL
+            e.requestHeaders = HTTPHeaderField.sorted(stored.req.headers)
+            e.durationMs = Int(Date().timeIntervalSince(stored.began) * 1000)
+        }
+        e.responseHeaders = HTTPHeaderField.sorted(finalHeaders(conn, responseHeaders))
+        e.servedFile = servedFile
+        e.rewritten = rewritten
+        return e
     }
 
     private func lockedLog(_ entry: RequestLogEntry) {
@@ -384,6 +398,15 @@ public final class StaticServer: @unchecked Sendable {
         // Chrome's Private Network Access: a public page asking to reach localhost.
         if req.headers["access-control-request-private-network"] == "true" { h["Access-Control-Allow-Private-Network"] = "true" }
         return h
+    }
+
+    /// Everything that is sent back: the response's own headers plus CORS headers and the ones every response carries.
+    private func finalHeaders(_ conn: NWConnection, _ headers: [String: String]) -> [String: String] {
+        var merged = headers
+        for (k, v) in connHeaders[ObjectIdentifier(conn)] ?? [:] { merged[k] = v }
+        merged["Cache-Control"] = "no-store"
+        merged["Connection"] = "close"
+        return merged
     }
 
     private func responseHead(_ conn: NWConnection, status: Int, headers: [String: String]) -> String {

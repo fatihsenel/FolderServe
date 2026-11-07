@@ -20,13 +20,38 @@ final class ProxyForwarder: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         let extraHeaders: [String: String]
         let log: (RequestLogEntry) -> Void
         let isHead: Bool
+        let began = Date()
+        let upstream: URL
+        let requestBody: Data
         var started = false
         var bodyless = false
         var bytes: Int64 = 0
         var status = 0
-        init(conn: NWConnection, rule: ProxyRule, req: HTTPRequest, extra: [String: String], log: @escaping (RequestLogEntry) -> Void) {
+        var responseFields: [HTTPHeaderField] = []
+        var captured = Data()
+        var capturedTruncated = false
+        init(conn: NWConnection, rule: ProxyRule, req: HTTPRequest, extra: [String: String], upstream: URL, body: Data,
+             log: @escaping (RequestLogEntry) -> Void) {
             self.conn = conn; self.rule = rule; self.req = req; self.extraHeaders = extra; self.log = log
+            self.upstream = upstream; self.requestBody = body
             self.isHead = req.method == "HEAD"
+        }
+
+        /// A log entry with everything captured so far.
+        func entry(status: Int, bytes: Int64, note: String, responseFields: [HTTPHeaderField]) -> RequestLogEntry {
+            var e = RequestLogEntry(method: req.method, path: req.path, status: status, bytes: bytes, note: note,
+                                    category: .classify(path: req.path, secFetchDest: req.headers["sec-fetch-dest"], proxied: true))
+            e.url = req.displayURL
+            e.requestHeaders = HTTPHeaderField.sorted(req.headers)
+            e.responseHeaders = responseFields
+            e.durationMs = Int(Date().timeIntervalSince(began) * 1000)
+            e.upstreamURL = upstream.absoluteString
+            if !requestBody.isEmpty {
+                e.requestBody = requestBody.prefix(RequestLogEntry.maxRequestBodyCapture)
+                e.requestBodyTruncated = requestBody.count > RequestLogEntry.maxRequestBodyCapture
+            }
+            if !captured.isEmpty { e.responseBody = captured; e.responseBodyTruncated = capturedTruncated }
+            return e
         }
     }
 
@@ -72,7 +97,7 @@ final class ProxyForwarder: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         if !body.isEmpty { request.httpBody = body }
 
         let task = session.dataTask(with: request)
-        let ex = Exchange(conn: conn, rule: rule, req: req, extra: extraHeaders, log: log)
+        let ex = Exchange(conn: conn, rule: rule, req: req, extra: extraHeaders, upstream: url, body: body, log: log)
         lock.lock(); exchanges[task.taskIdentifier] = ex; lock.unlock()
         task.resume()
     }
@@ -107,7 +132,9 @@ final class ProxyForwarder: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         ex.started = true
         ex.status = http.statusCode
         ex.bodyless = ex.isHead || http.statusCode == 204 || http.statusCode == 304 || http.statusCode < 200
-        let head = Data(Self.responseHead(http, ex: ex).utf8)
+        let (headText, fields) = Self.responseHead(http, ex: ex)
+        ex.responseFields = fields
+        let head = Data(headText.utf8)
         ex.conn.send(content: head, completion: .contentProcessed { [weak self] err in
             if err != nil { dataTask.cancel(); return }
             if ex.bodyless { self?.finish(dataTask) }
@@ -118,6 +145,9 @@ final class ProxyForwarder: NSObject, URLSessionDataDelegate, @unchecked Sendabl
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         guard let ex = exchange(dataTask), !data.isEmpty else { return }
         ex.bytes += Int64(data.count)
+        let room = RequestLogEntry.maxResponseBodyCapture - ex.captured.count
+        if room > 0 { ex.captured.append(data.prefix(room)) }
+        if data.count > max(room, 0) { ex.capturedTruncated = true }
         var chunk = Data(String(data.count, radix: 16).utf8)
         chunk.append(Data("\r\n".utf8)); chunk.append(data); chunk.append(Data("\r\n".utf8))
         ex.conn.send(content: chunk, completion: .contentProcessed { err in if err != nil { dataTask.cancel() } })
@@ -133,9 +163,8 @@ final class ProxyForwarder: NSObject, URLSessionDataDelegate, @unchecked Sendabl
             var head = "HTTP/1.1 \(status) \(status == 504 ? "Gateway Timeout" : "Bad Gateway")\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(html.utf8.count)\r\n"
             for (k, v) in ex.extraHeaders { head += "\(k): \(v)\r\n" }
             head += "Cache-Control: no-store\r\nConnection: close\r\n\r\n"
-            ex.log(RequestLogEntry(method: ex.req.method, path: ex.req.path, status: status, bytes: Int64(html.utf8.count),
-                                   note: "→ \(ex.rule.target) failed",
-                                   category: .classify(path: ex.req.path, secFetchDest: ex.req.headers["sec-fetch-dest"], proxied: true)))
+            ex.log(ex.entry(status: status, bytes: Int64(html.utf8.count), note: "→ \(ex.rule.target) failed",
+                            responseFields: [HTTPHeaderField(name: "Content-Type", value: "text/html; charset=utf-8")]))
             ex.conn.send(content: Data((head + (ex.isHead ? "" : html)).utf8), contentContext: .finalMessage, isComplete: true,
                          completion: .contentProcessed { _ in ex.conn.cancel() })
             return
@@ -146,9 +175,7 @@ final class ProxyForwarder: NSObject, URLSessionDataDelegate, @unchecked Sendabl
     private func finish(_ task: URLSessionTask) {
         lock.lock(); let ex = exchanges.removeValue(forKey: task.taskIdentifier); lock.unlock()
         guard let ex else { return }
-        ex.log(RequestLogEntry(method: ex.req.method, path: ex.req.path, status: ex.status, bytes: ex.bytes,
-                               note: "→ \(ex.rule.target)",
-                               category: .classify(path: ex.req.path, secFetchDest: ex.req.headers["sec-fetch-dest"], proxied: true)))
+        ex.log(ex.entry(status: ex.status, bytes: ex.bytes, note: "→ \(ex.rule.target)", responseFields: ex.responseFields))
         let tail: Data? = ex.bodyless ? nil : Data("0\r\n\r\n".utf8)
         ex.conn.send(content: tail, contentContext: .finalMessage, isComplete: true,
                      completion: .contentProcessed { _ in ex.conn.cancel() })
@@ -156,28 +183,32 @@ final class ProxyForwarder: NSObject, URLSessionDataDelegate, @unchecked Sendabl
 
     // MARK: Helpers
 
-    private static func responseHead(_ http: HTTPURLResponse, ex: Exchange) -> String {
+    private static func responseHead(_ http: HTTPURLResponse, ex: Exchange) -> (String, [HTTPHeaderField]) {
         let status = http.statusCode
-        var s = "HTTP/1.1 \(status) \(HTTPURLResponse.localizedString(forStatusCode: status).capitalized)\r\n"
+        var s = "HTTP/1.1 \(status) \(HTTPStatus.reason(status))\r\n"
+        var fields: [HTTPHeaderField] = []
+        func add(_ name: String, _ value: String) { s += "\(name): \(value)\r\n"; fields.append(HTTPHeaderField(name: name, value: value)) }
         let drop: Set<String> = ["connection", "keep-alive", "proxy-authenticate", "proxy-connection", "te", "trailer",
                                  "transfer-encoding", "upgrade", "content-encoding", "strict-transport-security"]
-        for (key, value) in http.allHeaderFields {
+        for (key, value) in http.allHeaderFields.sorted(by: { "\($0.key)" < "\($1.key)" }) {
             guard let name = key as? String, let value = value as? String else { continue }
             let lower = name.lowercased()
             if drop.contains(lower) || lower.hasPrefix("access-control-") { continue }
             if lower == "content-length" && !ex.bodyless { continue }
             if lower == "set-cookie" {
-                for cookie in ProxyRule.splitSetCookie(value) { s += "Set-Cookie: \(ProxyRule.rewriteSetCookie(cookie))\r\n" }
+                for cookie in ProxyRule.splitSetCookie(value) { add("Set-Cookie", ProxyRule.rewriteSetCookie(cookie)) }
             } else if lower == "location" {
-                s += "Location: \(ex.rule.rewriteLocation(value))\r\n"
+                add("Location", ex.rule.rewriteLocation(value))
             } else {
-                s += "\(name): \(value)\r\n"
+                add(name, value)
             }
         }
-        for (k, v) in ex.extraHeaders { s += "\(k): \(v)\r\n" }
-        if !ex.bodyless { s += "Transfer-Encoding: chunked\r\n" }
-        s += "Cache-Control: no-store\r\nConnection: close\r\n\r\n"
-        return s
+        for (k, v) in ex.extraHeaders.sorted(by: { $0.key < $1.key }) { add(k, v) }
+        if !ex.bodyless { add("Transfer-Encoding", "chunked") }
+        add("Cache-Control", "no-store")
+        add("Connection", "close")
+        s += "\r\n"
+        return (s, fields)
     }
 
     private static func describe(_ error: Error, rule: ProxyRule) -> (Int, String) {

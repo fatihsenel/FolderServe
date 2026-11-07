@@ -6,6 +6,9 @@ struct ActivityView: View {
     @Environment(\.isSnapshotRendering) private var isSnapshot
     @State private var filter: UUID?
     @State private var category: RequestCategory?
+    @State private var selectedID: UUID?
+
+    init(initialSelection: UUID? = nil) { _selectedID = State(initialValue: initialSelection) }
 
     /// Lines of the chosen server (the category chips count these).
     private var serverLines: [LogLine] { manager.logLines(for: filter) }
@@ -13,6 +16,10 @@ struct ActivityView: View {
     private var lines: [LogLine] {
         guard let category else { return serverLines }
         return serverLines.filter { $0.entry.category == category }
+    }
+    private var selectedLine: LogLine? {
+        guard let selectedID else { return nil }
+        return manager.logLines(for: nil).first { $0.id == selectedID }
     }
     private func count(_ c: RequestCategory?) -> Int {
         guard let c else { return serverLines.count }
@@ -29,30 +36,54 @@ struct ActivityView: View {
                     ForEach(manager.entries) { Text($0.displayName).tag(UUID?.some($0.id)) }
                 }
                 .frame(width: 200)
-                Button { manager.clearLog(for: filter) } label: { Label("Clear", systemImage: "trash") }
+                Button { manager.clearLog(for: filter); selectedID = nil } label: { Label("Clear", systemImage: "trash") }
                     .disabled(serverLines.isEmpty)
                     .help(filter == nil ? "Clear the activity of all servers" : "Clear this server's activity")
             }
             categoryChips
-            Group {
-                if lines.isEmpty {
-                    VStack(spacing: 8) {
-                        Image(systemName: "waveform.path.ecg").font(.system(size: 34, weight: .light))
-                        Text(serverLines.isEmpty ? "Requests will appear here as pages load."
-                                                 : "No \(category?.label ?? "") requests yet.")
-                            .foregroundStyle(.secondary)
+            GeometryReader { geo in
+                let selected = selectedLine
+                if geo.size.width >= 760 {
+                    HStack(alignment: .top, spacing: 16) {
+                        listCard.frame(minWidth: 340, maxHeight: .infinity, alignment: .top)
+                        if let selected {
+                            detail(selected).frame(width: min(480, geo.size.width * 0.46))
+                                .transition(.move(edge: .trailing).combined(with: .opacity))
+                        }
                     }
-                    .frame(maxWidth: .infinity, minHeight: 240)
-                } else if isSnapshot {
-                    rows
                 } else {
-                    ScrollView { rows }
+                    ZStack(alignment: .topLeading) {
+                        listCard.frame(maxHeight: .infinity, alignment: .top)
+                        if let selected { detail(selected).transition(.opacity) }
+                    }
                 }
             }
-            .card()
-            Spacer(minLength: 0)
+            .animation(.smooth(duration: 0.25), value: selectedID)
         }
         .padding(28)
+    }
+
+    private var listCard: some View {
+        Group {
+            if lines.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "waveform.path.ecg").font(.system(size: 34, weight: .light))
+                    Text(serverLines.isEmpty ? "Requests will appear here as pages load."
+                                             : "No \(category?.label ?? "") requests yet.")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 240)
+            } else if isSnapshot {
+                rows
+            } else {
+                ScrollView { rows }
+            }
+        }
+        .card()
+    }
+
+    private func detail(_ line: LogLine) -> some View {
+        RequestDetailView(line: line) { selectedID = nil }
     }
 
     private var categoryChips: some View {
@@ -88,6 +119,7 @@ struct ActivityView: View {
     private var rows: some View {
         LazyVStack(spacing: 0) {
             ForEach(lines.prefix(200)) { line in
+                let isSelected = line.id == selectedID
                 HStack(spacing: 12) {
                     Text(line.entry.date, format: .dateTime.hour().minute().second())
                         .foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
@@ -107,7 +139,13 @@ struct ActivityView: View {
                         .foregroundStyle(.secondary)
                 }
                 .font(.system(size: 12, design: .monospaced))
-                .padding(.vertical, 5)
+                .padding(.vertical, 5).padding(.horizontal, 8)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isSelected ? Theme.accent.opacity(0.35) : .clear))
+                .contentShape(Rectangle())
+                .onTapGesture { selectedID = isSelected ? nil : line.id }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel("\(line.entry.method) \(line.entry.path), status \(line.entry.status)")
             }
         }
     }

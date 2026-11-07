@@ -41,5 +41,5 @@ enum ServerStatus: Equatable {
 struct LogLine: Identifiable, Equatable {
     let id = UUID()
     let serverID: UUID
-    let entry: RequestLogEntry
+    var entry: RequestLogEntry
 }

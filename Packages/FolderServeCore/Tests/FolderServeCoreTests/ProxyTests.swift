@@ -270,6 +270,14 @@ final class ProxyIntegrationTests: XCTestCase {
         XCTAssertEqual(upstream.last?.headers["referer"], "http://127.0.0.1:\(upstream.port)/")
     }
 
+    func testProxiedStatusLineUsesStandardReasonPhrases() async throws {
+        let port = try await start()
+        let raw = try XCTUnwrap(RawHTTP.rawText(port: port, "GET /api/users HTTP/1.1\r\nHost: 127.0.0.1:\(port)\r\n\r\n"))
+        XCTAssertTrue(raw.hasPrefix("HTTP/1.1 200 OK\r\n"), String(raw.prefix(40)))
+        let missing = try XCTUnwrap(RawHTTP.rawText(port: port, "GET /api/missing HTTP/1.1\r\nHost: 127.0.0.1:\(port)\r\n\r\n"))
+        XCTAssertTrue(missing.hasPrefix("HTTP/1.1 404 Not Found\r\n"))
+    }
+
     func testStripPrefix() async throws {
         let port = try await start(rules: [ProxyRule(prefix: "/api", target: "http://127.0.0.1:\(upstream.port)", stripPrefix: true)])
         XCTAssertEqual(try send(port, "GET", "/api/users").text, "GET /users body=")

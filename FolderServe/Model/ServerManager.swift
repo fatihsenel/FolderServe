@@ -20,6 +20,7 @@ final class ServerManager {
     @ObservationIgnored private let store: ServerStoring
     @ObservationIgnored private let defaultStartPort: UInt16
     @ObservationIgnored private let minSearchDuration: TimeInterval
+    @ObservationIgnored private let bodyBudget: Int
     @ObservationIgnored private let defaults: UserDefaults
     private static let dotfilesKey = "serveDotfiles"
     private static let startAtLaunchKey = "startServersAtLaunch"
@@ -30,8 +31,9 @@ final class ServerManager {
     private static let logger = Logger(subsystem: "com.fatihsenel.FolderServe", category: "servers")
 
     init(store: ServerStoring, defaultStartPort: UInt16 = 8080, minSearchDuration: TimeInterval = 1.5,
-         defaults: UserDefaults = .standard) {
+         bodyBudget: Int = 20 * 1024 * 1024, defaults: UserDefaults = .standard) {
         self.store = store
+        self.bodyBudget = bodyBudget
         self.minSearchDuration = minSearchDuration
         self.defaultStartPort = defaultStartPort
         self.defaults = defaults
@@ -250,10 +252,42 @@ final class ServerManager {
         if !searching { statuses[id] = .running(port: port) }
     }
 
-    private func append(_ line: LogLine) {
+    func append(_ line: LogLine) {
         log.append(line)
         if log.count > Self.maxLogLines { log.removeFirst(log.count - Self.maxLogLines) }
+        if line.entry.capturedBodyBytes > 0 { enforceBodyBudget() }
     }
+
+    /// Captured request/response bodies live in memory only. When they add up to more than the budget,
+    /// the oldest requests lose their bodies (their headers stay).
+    private func enforceBodyBudget() {
+        var total = log.reduce(0) { $0 + $1.entry.capturedBodyBytes }
+        guard total > bodyBudget else { return }
+        for i in log.indices {
+            if total <= bodyBudget { break }
+            let n = log[i].entry.capturedBodyBytes
+            guard n > 0 else { continue }
+            log[i].entry.requestBody = nil
+            log[i].entry.responseBody = nil
+            log[i].entry.bodiesDropped = true
+            total -= n
+        }
+    }
+
+    /// Reads (up to `limit` bytes of) the file that answered a static request, for the details panel.
+    /// Only files inside a folder this app serves are read, and only while that folder is accessible.
+    nonisolated static func readServedFile(path: String, folderPath: String, limit: Int) -> (data: Data, totalSize: Int64)? {
+        let root = URL(fileURLWithPath: folderPath).resolvingSymlinksInPath().path
+        let file = URL(fileURLWithPath: path).resolvingSymlinksInPath()
+        guard file.path.hasPrefix(root + "/"),
+              let size = (try? file.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
+              let handle = try? FileHandle(forReadingFrom: file) else { return nil }
+        defer { try? handle.close() }
+        guard let data = try? handle.read(upToCount: limit) else { return nil }
+        return (data, Int64(size))
+    }
+
+    func folderPath(for serverID: UUID) -> String? { entries.first { $0.id == serverID }?.folderPath }
 
     private func teardown(_ id: UUID) {
         servers[id]?.stop()
