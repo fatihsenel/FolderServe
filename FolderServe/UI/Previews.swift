@@ -65,6 +65,9 @@ extension PreviewData {
 #Preview("Servers – drop targeted") {
     ServersView(initiallyTargeted: true).environment(PreviewData.manager(populated: true)).frame(width: 900, height: 700)
 }
+#Preview("Add Folder button") {
+    HStack(spacing: 30) { AddFolderButton(action: {}); AddFolderButton(action: {}, initiallyHovering: true) }.padding(30)
+}
 #Preview("Server card") {
     let s = PreviewData.runningServer()
     return ServerCardView(entryID: s.id).environment(s.manager).padding().frame(width: 700)

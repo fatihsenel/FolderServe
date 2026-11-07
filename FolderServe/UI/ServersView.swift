@@ -15,8 +15,7 @@ struct ServersView: View {
             HStack {
                 Text("Servers").font(.system(size: 30, weight: .bold, design: .rounded))
                 Spacer()
-                Button { addFolders() } label: { Label("Add Folder…", systemImage: "plus") }
-                    .buttonStyle(.borderedProminent).tint(Theme.accent).controlSize(.large)
+                AddFolderButton(action: addFolders)
             }
             if manager.entries.isEmpty {
                 DropZoneView(isTargeted: isTargeted, addFolder: addFolders)
@@ -88,5 +87,53 @@ private struct FolderDropModifier: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+
+/// The main screen's "Add Folder…" button: on hover it grows a little, glows and turns its plus; on press it dips.
+struct AddFolderButton: View {
+    let action: () -> Void
+    @State private var hovering: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(action: @escaping () -> Void, initiallyHovering: Bool = false) {
+        self.action = action
+        _hovering = State(initialValue: initiallyHovering)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus").font(.system(size: 14, weight: .bold))
+                    .rotationEffect(.degrees(hovering && !reduceMotion ? 90 : 0))
+                Text("Add Folder…").font(.system(size: 15, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 18).padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(
+                LinearGradient(colors: [Theme.accent.opacity(hovering ? 1 : 0.88), Theme.accent.opacity(hovering ? 0.82 : 0.70)],
+                               startPoint: .top, endPoint: .bottom)))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(.white.opacity(hovering ? 0.5 : 0.2), lineWidth: 1))
+            .shadow(color: Theme.accent.opacity(hovering ? 0.65 : 0), radius: 14, y: 4)
+        }
+        .buttonStyle(AddFolderButtonStyle(hovering: hovering, reduceMotion: reduceMotion))
+        .onHover { inside in
+            hovering = inside
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.62), value: hovering)
+        .accessibilityLabel("Add folder")
+    }
+}
+
+private struct AddFolderButtonStyle: ButtonStyle {
+    let hovering: Bool
+    let reduceMotion: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(reduceMotion ? 1 : configuration.isPressed ? 0.96 : hovering ? 1.06 : 1)
+            .animation(reduceMotion ? .none : .snappy(duration: 0.16), value: configuration.isPressed)
     }
 }
