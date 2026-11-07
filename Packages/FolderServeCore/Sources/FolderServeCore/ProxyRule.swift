@@ -9,12 +9,16 @@ public struct ProxyRule: Codable, Equatable, Sendable, Identifiable {
     public var target: String
     /// false: "/api/users" -> "<target>/api/users"; true: -> "<target>/users".
     public var stripPrefix: Bool
+    /// Replace the target's address in the text files served from the folder (config.json, JS bundles, HTML)
+    /// with this server's own address, so an app that hard-codes "https://localhost:5003" calls the proxy instead.
+    public var rewriteAddress: Bool
 
-    public init(id: UUID = UUID(), prefix: String, target: String, stripPrefix: Bool = false) {
+    public init(id: UUID = UUID(), prefix: String, target: String, stripPrefix: Bool = false, rewriteAddress: Bool = true) {
         self.id = id
         self.prefix = prefix
         self.target = target
         self.stripPrefix = stripPrefix
+        self.rewriteAddress = rewriteAddress
     }
 
     public init(from decoder: Decoder) throws {
@@ -23,6 +27,7 @@ public struct ProxyRule: Codable, Equatable, Sendable, Identifiable {
         prefix = try c.decode(String.self, forKey: .prefix)
         target = try c.decode(String.self, forKey: .target)
         stripPrefix = try c.decodeIfPresent(Bool.self, forKey: .stripPrefix) ?? false
+        rewriteAddress = try c.decodeIfPresent(Bool.self, forKey: .rewriteAddress) ?? true
     }
 
     // MARK: Validation
@@ -89,6 +94,33 @@ public struct ProxyRule: Codable, Equatable, Sendable, Identifiable {
         guard rest.hasPrefix("/") else { return location }
         if stripPrefix { rest = normalizedPrefix + rest }
         return rest
+    }
+
+    // MARK: Address rewriting in served files
+
+    /// File types whose contents are scanned for the target's address.
+    public static let rewritableExtensions: Set<String> = ["json", "js", "mjs", "html", "htm"]
+    public static let maxRewritableBytes = 10 * 1024 * 1024
+
+    /// Replaces every whole-address occurrence of `origins` (e.g. "https://localhost:5003", also the JSON-escaped
+    /// form "https:\/\/localhost:5003") in text with `local` (e.g. "http://127.0.0.1:8080").
+    /// Returns nil when nothing needed changing or the data is not UTF-8 text.
+    public static func rewriteAddresses(in data: Data, origins: [String], with local: String) -> Data? {
+        guard !origins.isEmpty, var text = String(data: data, encoding: .utf8) else { return nil }
+        var changed = false
+        for origin in Set(origins) {
+            for (from, to) in [(origin, local), (origin.replacingOccurrences(of: "/", with: "\\/"), local.replacingOccurrences(of: "/", with: "\\/"))] {
+                guard text.range(of: from, options: .caseInsensitive) != nil else { continue }
+                // Whole addresses only: not "…:50031", not "localhost.example.com".
+                let pattern = NSRegularExpression.escapedPattern(for: from) + "(?![A-Za-z0-9\\-]|\\.[A-Za-z0-9])"
+                guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { continue }
+                let range = NSRange(text.startIndex..., in: text)
+                let replaced = regex.stringByReplacingMatches(in: text, options: [], range: range,
+                                                              withTemplate: NSRegularExpression.escapedTemplate(for: to))
+                if replaced != text { text = replaced; changed = true }
+            }
+        }
+        return changed ? Data(text.utf8) : nil
     }
 
     // MARK: Cookies
