@@ -16,7 +16,7 @@ struct ServerCardView: View {
                     statusIcon
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 8) {
-                            Text(entry.displayName).font(.system(size: 19, weight: .semibold, design: .rounded))
+                            title(for: entry)
                             if let kind = manager.projectKinds[entryID] { ProjectBadge(kind: kind) }
                         }
                         Text(entry.folderPath).font(.caption).foregroundStyle(.secondary)
@@ -44,6 +44,58 @@ struct ServerCardView: View {
             }
             .card()
         }
+    }
+
+    @State private var isEditing = false
+    @State private var draft = ""
+    @State private var hoveringTitle = false
+    @State private var cancelled = false
+    @FocusState private var titleFocused: Bool
+
+    @ViewBuilder private func title(for entry: ServerEntry) -> some View {
+        if isEditing {
+            TextField("Name", text: $draft)
+                .textFieldStyle(.plain)
+                .font(.system(size: 19, weight: .semibold, design: .rounded))
+                .padding(.horizontal, 8).padding(.vertical, 2)
+                .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.1)))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent, lineWidth: 1.5))
+                .frame(maxWidth: 320)
+                .focused($titleFocused)
+                .onSubmit { commitRename() }
+                .onExitCommand { cancelled = true; isEditing = false }
+                .onChange(of: titleFocused) { _, focused in if !focused && isEditing { commitRename() } }
+                .onAppear { titleFocused = true }
+        } else {
+            HStack(spacing: 6) {
+                Text(entry.displayName).font(.system(size: 19, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                Button { beginRename(entry) } label: { Image(systemName: "pencil") }
+                    .buttonStyle(.plain).foregroundStyle(.secondary)
+                    .opacity(hoveringTitle ? 1 : 0)
+                    .help("Rename (label only — the folder on disk is not changed)")
+                    .accessibilityLabel("Rename \(entry.displayName)")
+            }
+            .contentShape(Rectangle())
+            .onHover { hoveringTitle = $0 }
+            .onTapGesture(count: 2) { beginRename(entry) }
+            .contextMenu {
+                Button("Rename…") { beginRename(entry) }
+                if entry.customName != nil { Button("Use folder name") { manager.rename(entryID, to: "") } }
+            }
+        }
+    }
+
+    private func beginRename(_ entry: ServerEntry) {
+        draft = entry.displayName
+        cancelled = false
+        isEditing = true
+    }
+
+    private func commitRename() {
+        guard isEditing else { return }
+        isEditing = false
+        if !cancelled { manager.rename(entryID, to: draft) }
     }
 
     private var isRunning: Bool { if case .running = status { return true } else { return false } }

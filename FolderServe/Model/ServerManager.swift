@@ -142,6 +142,22 @@ final class ServerManager {
         return lines.reversed()
     }
 
+    static let maxNameLength = 60
+
+    /// Trimmed, length-limited label; nil (= use the folder name) when empty or equal to the folder name.
+    static func normalizedName(_ raw: String, folderName: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let limited = String(trimmed.prefix(maxNameLength)).trimmingCharacters(in: .whitespaces)
+        return limited.isEmpty || limited == folderName ? nil : limited
+    }
+
+    /// Renames the card's label only; the folder on disk and the URL stay the same.
+    func rename(_ id: UUID, to name: String) {
+        guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
+        entries[i].customName = Self.normalizedName(name, folderName: entries[i].folderName)
+        persist()
+    }
+
     func setPreferredPort(_ id: UUID, _ port: UInt16?) {
         guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
         entries[i].preferredPort = port

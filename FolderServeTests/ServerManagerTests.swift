@@ -86,6 +86,52 @@ final class ServerManagerTests: XCTestCase {
         XCTAssertNil(manager.projectKinds[id])
     }
 
+    func testRenameSetsLabelAndPersists() throws {
+        let f = try folder("shop-dist")
+        let id = manager.add(folder: f)
+        manager.rename(id, to: "  Shop (Angular)  ")
+        XCTAssertEqual(manager.entries.first { $0.id == id }?.displayName, "Shop (Angular)")
+        XCTAssertEqual(manager.entries.first { $0.id == id }?.folderName, "shop-dist")
+        let reloaded = ServerManager(store: store, defaultStartPort: startPort, minSearchDuration: 0)
+        XCTAssertEqual(reloaded.entries.first?.displayName, "Shop (Angular)")
+    }
+
+    func testRenameToEmptyOrFolderNameClearsLabel() throws {
+        let id = manager.add(folder: try folder("blog"))
+        manager.rename(id, to: "My blog")
+        manager.rename(id, to: "   ")
+        XCTAssertNil(manager.entries.first { $0.id == id }?.customName)
+        manager.rename(id, to: "My blog")
+        manager.rename(id, to: "blog")
+        XCTAssertNil(manager.entries.first { $0.id == id }?.customName)
+        XCTAssertEqual(manager.entries.first { $0.id == id }?.displayName, "blog")
+    }
+
+    func testRenameIsLengthLimited() throws {
+        let id = manager.add(folder: try folder())
+        manager.rename(id, to: String(repeating: "x", count: 200))
+        XCTAssertEqual(manager.entries.first { $0.id == id }?.displayName.count, ServerManager.maxNameLength)
+    }
+
+    func testOldSavedEntriesWithoutCustomNameStillLoad() throws {
+        let json = """
+        [{"id":"\(UUID().uuidString)","bookmark":"","folderPath":"/tmp/old","preferredPort":null,"options":{"spaMode":true,"liveReload":true,"serveDotfiles":false},"autoStart":false}]
+        """
+        let data = Data(json.utf8)
+        let entries = try JSONDecoder().decode([ServerEntry].self, from: data)
+        XCTAssertEqual(entries.first?.displayName, "old")
+    }
+
+    func testRenameDoesNotChangeServedFolderOrPort() async throws {
+        let f = try folder()
+        let id = manager.add(folder: f)
+        await expectEventually { runningPort(id) != nil }
+        let port = runningPort(id)
+        manager.rename(id, to: "Renamed")
+        XCTAssertEqual(runningPort(id), port)
+        XCTAssertEqual(manager.entries.first { $0.id == id }?.folderPath, f.standardizedFileURL.path)
+    }
+
     func testAddingSameFolderTwiceReturnsSameID() throws {
         let f = try folder()
         let a = manager.add(folder: f)
