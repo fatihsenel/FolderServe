@@ -147,6 +147,34 @@ final class ServerManagerTests: XCTestCase {
         XCTAssertTrue(m.logLines(for: nil).isEmpty)
     }
 
+    func testBodiesAreDroppedOldestFirstWhenOverBudget() throws {
+        let m = ServerManager(store: InMemoryStore(), defaultStartPort: startPort, minSearchDuration: 0, bodyBudget: 1_000)
+        let server = UUID()
+        func line(_ n: Int) -> LogLine {
+            var e = RequestLogEntry(method: "POST", path: "/api/\(n)", status: 200, bytes: 0)
+            e.requestBody = Data(repeating: 1, count: 300); e.responseBody = Data(repeating: 2, count: 300)
+            return LogLine(serverID: server, entry: e)
+        }
+        for n in 1...3 { m.append(line(n)) }
+        let kept = m.logLines(for: nil).reversed()      // oldest first
+        XCTAssertEqual(kept.map(\.entry.bodiesDropped), [true, true, false], "1.8 KB of bodies > 1 KB budget: the two oldest lose theirs")
+        XCTAssertNil(kept.first?.entry.responseBody)
+        XCTAssertEqual(kept.last?.entry.responseBody?.count, 300)
+    }
+
+    func testReadServedFileIsLimitedToTheServedFolder() throws {
+        let f = try folder("site")
+        try "hello world".write(to: f.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
+        let outside = base.appendingPathComponent("secret.txt")
+        try "nope".write(to: outside, atomically: true, encoding: .utf8)
+        let ok = ServerManager.readServedFile(path: f.appendingPathComponent("a.txt").path, folderPath: f.path, limit: 5)
+        XCTAssertEqual(ok.map { String(decoding: $0.data, as: UTF8.self) }, "hello")
+        XCTAssertEqual(ok?.totalSize, 11)
+        XCTAssertNil(ServerManager.readServedFile(path: outside.path, folderPath: f.path, limit: 100))
+        XCTAssertNil(ServerManager.readServedFile(path: f.appendingPathComponent("../secret.txt").path, folderPath: f.path, limit: 100))
+        XCTAssertNil(ServerManager.readServedFile(path: f.appendingPathComponent("missing").path, folderPath: f.path, limit: 100))
+    }
+
     func testAddingSameFolderTwiceReturnsSameID() throws {
         let f = try folder()
         let a = manager.add(folder: f)

@@ -98,4 +98,20 @@ Example: `/uiapi` → `https://localhost:5003` sends `/uiapi/Account/Login` to
 The Activity tab lists requests with a dev-tools style category: Fetch/XHR, Doc, JS, CSS, Img, Media, Font and
 Other. Click a chip to filter (the chips show counts for the chosen server). The category comes from the
 browser's `Sec-Fetch-Dest` header when it sends one, otherwise from the file extension; proxied API calls
-are Fetch/XHR. **Clear** removes the activity of the chosen server, or of all servers when "All servers" is selected.
+are Fetch/XHR. Browsers also send `Sec-Fetch-Dest: empty` for preloads (e.g. `modulepreload` chunks), so plain
+`.js`, `.css`, image, font and media files are always grouped by their type; `.json` and extensionless paths
+requested that way stay Fetch/XHR. **Clear** removes the activity of the chosen server, or of all servers when "All servers" is selected.
+
+### Request details
+
+Click a request in Activity to open its details (Esc or × closes them): **Headers** (URL, status, time, size, request and
+response headers), **Payload** (request body of proxied calls, JSON pretty-printed, forms decoded), **Preview**
+(images rendered with their size, JSON and text, a sample line for fonts) and **Response** (raw body with Copy).
+
+- Files served from your folder are read from disk when you open them, so nothing extra is kept in memory. If the
+  proxy address was replaced in a file when it was served, the panel says so and shows the file on disk.
+- For proxied calls the first 32 KB of the request and 128 KB of the response are kept (the rest is marked truncated).
+  When kept bodies exceed 20 MB, the oldest requests lose their bodies (headers stay).
+- Details are held in memory only: never written to disk, gone on Clear or quit. They are shown **unmasked**
+  (`Authorization`, `Cookie`, request bodies such as passwords), as in browser dev tools.
+- Not included yet: audio/video preview, a timing waterfall, WebSocket frames, HAR export.

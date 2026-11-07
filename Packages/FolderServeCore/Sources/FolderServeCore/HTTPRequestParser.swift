@@ -8,6 +8,13 @@ public struct HTTPRequest: Equatable, Sendable {
     /// Header names are lowercased.
     public var headers: [String: String]
 
+    /// The URL as the browser used it (http + Host header + path + query), for display.
+    public var displayURL: String {
+        let host = headers["host"] ?? "127.0.0.1"
+        let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
+        return "http://\(host)\(encoded)" + (rawQuery.map { "?" + $0 } ?? "")
+    }
+
     public init(method: String, path: String, rawQuery: String?, headers: [String: String]) {
         self.method = method
         self.path = path
