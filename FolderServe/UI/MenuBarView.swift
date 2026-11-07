@@ -65,6 +65,7 @@ private struct MenuBarRow: View {
     let entry: ServerEntry
     private var status: ServerStatus { manager.statuses[entry.id] ?? .stopped }
     private var isRunning: Bool { if case .running = status { return true } else { return false } }
+    private var isFinding: Bool { if case .finding = status { return true } else { return false } }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -85,7 +86,7 @@ private struct MenuBarRow: View {
                     .font(.system(size: 20))
                     .foregroundStyle(isRunning ? Theme.failed : Theme.running)
             }
-            .disabled(status == .folderMissing)
+            .disabled(status == .folderMissing || isFinding)
             .help(isRunning ? "Stop" : "Start")
         }
         .buttonStyle(.plain)
@@ -97,6 +98,7 @@ private struct MenuBarRow: View {
         switch status {
         case .running(let port): return "127.0.0.1:\(String(port))"
         case .stopped: return "Stopped"
+        case .finding: return "Finding port…"
         case .error(let message): return message
         case .folderMissing: return "Folder missing"
         }

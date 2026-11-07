@@ -20,7 +20,7 @@ final class RestoreTests: XCTestCase {
     }
 
     private func makeManager(defaults: UserDefaults) -> ServerManager {
-        let m = ServerManager(store: store, defaultStartPort: UInt16.random(in: 20_000...50_000), defaults: defaults)
+        let m = ServerManager(store: store, defaultStartPort: UInt16.random(in: 20_000...50_000), minSearchDuration: 0, defaults: defaults)
         created.append(m)
         return m
     }

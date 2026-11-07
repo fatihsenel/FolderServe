@@ -9,7 +9,6 @@ final class ServerManager {
     private(set) var statuses: [UUID: ServerStatus] = [:]
     /// Detected framework per folder; filled in when a server starts (needs folder access).
     private(set) var projectKinds: [UUID: ProjectKind] = [:]
-    var notice: String?
     private(set) var log: [LogLine] = []
     /// Global setting: serve dotfiles (e.g. .env) from every folder. Off by default.
     private(set) var serveDotfiles: Bool
@@ -20,6 +19,7 @@ final class ServerManager {
 
     @ObservationIgnored private let store: ServerStoring
     @ObservationIgnored private let defaultStartPort: UInt16
+    @ObservationIgnored private let minSearchDuration: TimeInterval
     @ObservationIgnored private let defaults: UserDefaults
     private static let dotfilesKey = "serveDotfiles"
     private static let startAtLaunchKey = "startServersAtLaunch"
@@ -29,8 +29,10 @@ final class ServerManager {
     private static let maxLogLines = 500
     private static let logger = Logger(subsystem: "com.fatihsenel.FolderServe", category: "servers")
 
-    init(store: ServerStoring, defaultStartPort: UInt16 = 8080, defaults: UserDefaults = .standard) {
+    init(store: ServerStoring, defaultStartPort: UInt16 = 8080, minSearchDuration: TimeInterval = 1.5,
+         defaults: UserDefaults = .standard) {
         self.store = store
+        self.minSearchDuration = minSearchDuration
         self.defaultStartPort = defaultStartPort
         self.defaults = defaults
         self.serveDotfiles = defaults.bool(forKey: Self.dotfilesKey)
@@ -173,15 +175,32 @@ final class ServerManager {
         }
 
         var candidate = defaultStartPort
+        var busy: [UInt16] = []
+        let began = Date()
+        let animate = minSearchDuration > 0
+        if animate { statuses[id] = .finding(PortSearch(busy: [], landed: nil, began: began, duration: minSearchDuration)) }
+        func publish(landed: UInt16? = nil) {
+            guard animate else { return }
+            statuses[id] = .finding(PortSearch(busy: Array(busy.suffix(12)), landed: landed, began: began, duration: minSearchDuration))
+        }
         for _ in 0..<10 {
             guard let free = PortFinder.firstFree(startingAt: candidate) else { break }
+            if free > candidate { busy.append(contentsOf: candidate..<free) }   // ports PortFinder skipped because they are in use
             let server = StaticServer(root: folder, port: free, options: entry.options)
             do {
                 let port = try await server.start()
-                if port != defaultStartPort { notice = "Port \(defaultStartPort) was busy — \(entry.displayName) is using \(port)." }
-                attach(server, id: id, port: port)
+                attach(server, id: id, port: port, searching: animate)
+                if animate {
+                    publish(landed: port)
+                    let remaining = minSearchDuration - Date().timeIntervalSince(began)
+                    if remaining > 0 { try? await Task.sleep(for: .seconds(remaining)) }
+                    // Only finish if the user did not stop or remove it while the animation played.
+                    if servers[id] === server, case .finding = statuses[id] { statuses[id] = .running(port: port) }
+                }
                 return
             } catch StaticServerError.portInUse {
+                busy.append(free)
+                publish()
                 guard free < UInt16.max else { break }
                 candidate = free + 1
             } catch {
@@ -194,12 +213,12 @@ final class ServerManager {
 
     // MARK: - Internals
 
-    private func attach(_ server: StaticServer, id: UUID, port: UInt16) {
+    private func attach(_ server: StaticServer, id: UUID, port: UInt16, searching: Bool = false) {
         server.onRequest = { [weak self] entry in
             Task { @MainActor in self?.append(LogLine(serverID: id, entry: entry)) }
         }
         servers[id] = server
-        statuses[id] = .running(port: port)
+        if !searching { statuses[id] = .running(port: port) }
     }
 
     private func append(_ line: LogLine) {

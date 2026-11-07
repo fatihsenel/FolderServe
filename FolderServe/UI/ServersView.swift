@@ -13,15 +13,6 @@ struct ServersView: View {
                 Button { addFolders() } label: { Label("Add Folder…", systemImage: "plus") }
                     .buttonStyle(.borderedProminent).tint(Theme.accent).controlSize(.large)
             }
-            if let notice = manager.notice {
-                HStack {
-                    Label(notice, systemImage: "info.circle.fill")
-                    Spacer()
-                    Button { manager.notice = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain)
-                }
-                .padding(12)
-                .background(Theme.warning.opacity(0.22), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            }
             if manager.entries.isEmpty {
                 DropZoneView(isTargeted: isTargeted, addFolder: addFolders)
             } else {

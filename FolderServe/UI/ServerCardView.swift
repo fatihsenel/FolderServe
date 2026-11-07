@@ -24,7 +24,7 @@ struct ServerCardView: View {
                         statusLine
                     }
                     Spacer(minLength: 12)
-                    RoundActionButton(isRunning: isRunning, isBusy: status == .folderMissing) {
+                    RoundActionButton(isRunning: isRunning, isBusy: status == .folderMissing || isFinding) {
                         isRunning ? manager.stop(entryID) : manager.start(entryID)
                     }
                 }
@@ -47,6 +47,7 @@ struct ServerCardView: View {
     }
 
     private var isRunning: Bool { if case .running = status { return true } else { return false } }
+    private var isFinding: Bool { if case .finding = status { return true } else { return false } }
 
     private var statusIcon: some View {
         ZStack {
@@ -55,11 +56,14 @@ struct ServerCardView: View {
                 .overlay(Circle().strokeBorder(Theme.statusColor(status).opacity(0.8), lineWidth: 2))
             Image(systemName: "folder.fill").font(.system(size: 24))
                 .foregroundStyle(Theme.statusColor(status))
+                .symbolEffect(.pulse, isActive: isFinding)
         }
     }
 
     @ViewBuilder private var statusLine: some View {
         switch status {
+        case .finding(let search):
+            PortScanView(search: search)
         case .running(let port):
             Button { open() } label: {
                 Text("http://127.0.0.1:\(String(port))/").font(.system(.callout, design: .monospaced))

@@ -21,7 +21,7 @@ final class ServerManagerTests: XCTestCase {
         store = InMemoryStore()
         // A fresh port range per test: listeners from the previous test may still be shutting down.
         startPort = UInt16.random(in: 20_000...50_000)
-        manager = ServerManager(store: store, defaultStartPort: startPort)
+        manager = ServerManager(store: store, defaultStartPort: startPort, minSearchDuration: 0)
         base = fm.temporaryDirectory.appendingPathComponent("sm-\(UUID().uuidString)")
         try fm.createDirectory(at: base, withIntermediateDirectories: true)
     }
@@ -94,14 +94,56 @@ final class ServerManagerTests: XCTestCase {
         XCTAssertEqual(manager.entries.count, 1)
     }
 
-    func testPortConflictPicksNextFreeAndSetsNotice() async throws {
+    func testPortConflictPicksNextFreePort() async throws {
         let blocker = StaticServer(root: base, port: startPort, options: ServeOptions())
         _ = try await blocker.start()
         blockers.append(blocker)
         let id = manager.add(folder: try folder())
         await expectEventually { runningPort(id) != nil }
         XCTAssertGreaterThan(try XCTUnwrap(runningPort(id)), startPort)
-        XCTAssertNotNil(manager.notice)
+    }
+
+    func testPortSearchIsShownThenSettlesOnRunning() async throws {
+        let m = ServerManager(store: InMemoryStore(), defaultStartPort: startPort, minSearchDuration: 0.5)
+        defer { m.stopAll() }
+        let began = Date()
+        let id = m.add(folder: try folder())
+        var sawFinding = false
+        let ok = await waitFor(5) {
+            if case .finding = m.statuses[id] { sawFinding = true }
+            if case .running = m.statuses[id] { return true }
+            return false
+        }
+        XCTAssertTrue(ok)
+        XCTAssertTrue(sawFinding, "the card should show the port search first")
+        XCTAssertGreaterThanOrEqual(Date().timeIntervalSince(began), 0.45, "search is held for the minimum duration")
+    }
+
+    func testPortSearchReportsBusyPortsAndLandedPort() async throws {
+        let blocker = StaticServer(root: base, port: startPort, options: ServeOptions())
+        _ = try await blocker.start()
+        blockers.append(blocker)
+        let m = ServerManager(store: InMemoryStore(), defaultStartPort: startPort, minSearchDuration: 0.6)
+        defer { m.stopAll() }
+        let id = m.add(folder: try folder())
+        var search: PortSearch?
+        _ = await waitFor(5) {
+            if case .finding(let s) = m.statuses[id], s.landed != nil { search = s; return true }
+            return false
+        }
+        let found = try XCTUnwrap(search)
+        XCTAssertEqual(found.busy.first, startPort)
+        XCTAssertGreaterThan(try XCTUnwrap(found.landed), startPort)
+    }
+
+    func testStopDuringSearchAnimationStaysStopped() async throws {
+        let m = ServerManager(store: InMemoryStore(), defaultStartPort: startPort, minSearchDuration: 0.6)
+        defer { m.stopAll() }
+        let id = m.add(folder: try folder())
+        _ = await waitFor(5) { if case .finding(let s) = m.statuses[id], s.landed != nil { return true } else { return false } }
+        m.stop(id)
+        try await Task.sleep(nanoseconds: 800_000_000)
+        XCTAssertEqual(m.statuses[id], .stopped)
     }
 
     func testPreferredPortTakenShowsError() async throws {
@@ -129,7 +171,7 @@ final class ServerManagerTests: XCTestCase {
     func testPersistenceRoundTrip() throws {
         let f = try folder()
         let id = manager.add(folder: f)
-        let reloaded = ServerManager(store: store, defaultStartPort: startPort)
+        let reloaded = ServerManager(store: store, defaultStartPort: startPort, minSearchDuration: 0)
         XCTAssertEqual(reloaded.entries.map(\.id), [id])
         XCTAssertEqual(reloaded.entries.first?.folderPath, f.standardizedFileURL.path)
         XCTAssertEqual(reloaded.statuses[id], .stopped)
@@ -195,7 +237,7 @@ final class ServerManagerTests: XCTestCase {
         let suiteName = "fs-test-\(UUID().uuidString)"
         addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
         let suite = UserDefaults(suiteName: suiteName)!
-        manager = ServerManager(store: store, defaultStartPort: startPort, defaults: suite)
+        manager = ServerManager(store: store, defaultStartPort: startPort, minSearchDuration: 0, defaults: suite)
         let f = try folder("a")
         try "secret".write(to: f.appendingPathComponent(".env"), atomically: true, encoding: .utf8)
         let id = manager.add(folder: f)
@@ -218,12 +260,12 @@ final class ServerManagerTests: XCTestCase {
         let suiteName = "fs-test-\(UUID().uuidString)"
         addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
         let suite = UserDefaults(suiteName: suiteName)!
-        let m = ServerManager(store: store, defaultStartPort: startPort, defaults: suite)
+        let m = ServerManager(store: store, defaultStartPort: startPort, minSearchDuration: 0, defaults: suite)
         XCTAssertTrue(m.startServersAtLaunch)
         XCTAssertFalse(m.serveDotfiles)
         m.setServeDotfiles(true)
         m.startServersAtLaunch = false
-        let again = ServerManager(store: store, defaultStartPort: startPort, defaults: suite)
+        let again = ServerManager(store: store, defaultStartPort: startPort, minSearchDuration: 0, defaults: suite)
         XCTAssertTrue(again.serveDotfiles)
         XCTAssertFalse(again.startServersAtLaunch)
     }

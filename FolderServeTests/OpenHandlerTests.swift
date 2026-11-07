@@ -9,7 +9,7 @@ final class OpenHandlerTests: XCTestCase {
     let fm = FileManager.default
 
     override func setUpWithError() throws {
-        manager = ServerManager(store: InMemoryStore(), defaultStartPort: UInt16.random(in: 20_000...50_000))
+        manager = ServerManager(store: InMemoryStore(), defaultStartPort: UInt16.random(in: 20_000...50_000), minSearchDuration: 0)
         base = fm.temporaryDirectory.appendingPathComponent("oh-\(UUID().uuidString)")
         try fm.createDirectory(at: base, withIntermediateDirectories: true)
     }
