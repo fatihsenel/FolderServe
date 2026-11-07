@@ -41,7 +41,9 @@ Single test class: `-only-testing:FolderServeTests/RequestDetailTests`.
   Private views are covered by their parent's preview.
 - Respect **Reduce Motion** (`@Environment(\.accessibilityReduceMotion)`) in any animation.
 - Settings that are not per-server use `@AppStorage` / `UserDefaults` (`activityShowDetached`, `activityDetailHintSeen`).
-- The app is **sandboxed**: it only reads folders the user drops or picks (security-scoped bookmarks).
+- The app is **sandboxed**: it only reads folders the user drops or picks (security-scoped bookmarks, created read-only
+  with `.securityScopeAllowOnlyReadAccess`). The `user-selected.read-write` entitlement exists only so Activity's Export can
+  save a HAR file where the user chooses; nothing writes into served folders.
   Servers bind to `127.0.0.1` unless Share is on; non-loopback `Host` headers are rejected on purpose.
 - Request bodies and headers are held in memory only and shown unmasked, like browser dev tools. Do not write them to disk.
 

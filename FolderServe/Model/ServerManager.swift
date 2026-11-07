@@ -389,7 +389,7 @@ final class ServerManager {
     private func persist() { store.save(entries) }
 
     private static func makeBookmark(_ folder: URL) -> Data {
-        (try? folder.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)) ?? Data()
+        (try? folder.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess], includingResourceValuesForKeys: nil, relativeTo: nil)) ?? Data()
     }
 
     /// Resolves the entry's folder (bookmark first) and begins security-scoped access.
@@ -412,7 +412,7 @@ final class ServerManager {
             scoped = resolved.startAccessingSecurityScopedResource()
             if let i = entries.firstIndex(where: { $0.id == entry.id }) {
                 var changed = false
-                if stale, let fresh = try? resolved.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) {
+                if stale, let fresh = try? resolved.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess], includingResourceValuesForKeys: nil, relativeTo: nil) {
                     entries[i].bookmark = fresh; changed = true
                 }
                 if entries[i].folderPath != resolved.standardizedFileURL.path {

@@ -1,4 +1,6 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 import FolderServeCore
 
 struct ActivityView: View {
@@ -62,6 +64,9 @@ struct ActivityView: View {
                     ForEach(manager.entries) { Text($0.displayName).tag(UUID?.some($0.id)) }
                 }
                 .frame(width: 200)
+                Button { exportHAR() } label: { Label("Export", systemImage: "square.and.arrow.up") }
+                    .disabled(lines.isEmpty)
+                    .help("Save the listed requests, with their bodies where known, as a HAR file that browser DevTools can open")
                 Button { manager.clearLog(for: filter); selectedID = nil } label: { Label("Clear", systemImage: "trash") }
                     .disabled(allServerLines.isEmpty)
                     .help(filter == nil ? "Clear the activity of all servers" : "Clear this server's activity")
@@ -166,6 +171,39 @@ struct ActivityView: View {
               let slowest = lines.max(by: { ($0.entry.durationMs ?? -1) < ($1.entry.durationMs ?? -1) }),
               let ms = slowest.entry.durationMs, ms >= slowThresholdMs else { return nil }
         return slowest.id
+    }
+
+    /// Asks where to save, then writes the listed requests (respecting the server, category and search) as a HAR file.
+    private func exportHAR() {
+        let listed = lines
+        let paths = Dictionary(manager.entries.map { ($0.id, $0.folderPath) }, uniquingKeysWith: { first, _ in first })
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "har") ?? .json]
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "FolderServe-activity-\(Self.fileStamp(Date())).har"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        Task.detached {
+            do {
+                let bodies = HARExport.gatherBodies(for: listed, folderPath: { paths[$0] })
+                try HARExport.make(lines: listed, bodies: bodies, appVersion: version).write(to: url, options: .atomic)
+                await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            } catch {
+                await MainActor.run {
+                    let alert = NSAlert()
+                    alert.messageText = "The HAR file could not be saved"
+                    alert.informativeText = error.localizedDescription
+                    alert.runModal()
+                }
+            }
+        }
+    }
+
+    static func fileStamp(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyyMMdd-HHmmss"
+        return f.string(from: date)
     }
 
     /// Filters the list by method, path, status, note or type. Esc or × clears it.
