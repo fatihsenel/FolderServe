@@ -37,10 +37,13 @@ struct ServersView: View {
         }
         .padding(28)
         .overlay {
-            if isTargeted { DropOverlayView().transition(.opacity.combined(with: .scale(scale: 1.03))) }
+            // The fade is scoped to the overlay, so showing it does not animate the card list underneath.
+            ZStack {
+                if isTargeted { DropOverlayView().transition(.opacity) }
+            }
+            .animation(.easeOut(duration: 0.18), value: isTargeted)
         }
         .overlay { ForEach(bursts) { DropBurstView(point: $0.point) } }
-        .animation(.smooth(duration: 0.25), value: isTargeted)
         .modifier(FolderDropModifier(enabled: !isSnapshot, isTargeted: $isTargeted) { location in
             let burst = DropBurst(point: location)
             bursts.append(burst)
