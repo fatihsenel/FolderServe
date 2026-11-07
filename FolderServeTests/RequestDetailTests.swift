@@ -94,6 +94,19 @@ final class RequestDetailTests: XCTestCase {
         XCTAssertEqual(ActivityView.durationColor(nil), .secondary)
     }
 
+    func testActivitySearchMatchesEveryWordInAnyCase() {
+        var e = RequestLogEntry(method: "POST", path: "/uiapi/Account/Login", status: 200, bytes: 912, note: "→ https://localhost:5003", category: .fetch)
+        e.durationMs = 5
+        XCTAssertTrue(ActivityView.matches(e, query: ""))
+        XCTAssertTrue(ActivityView.matches(e, query: "   "))
+        XCTAssertTrue(ActivityView.matches(e, query: "login"))
+        XCTAssertTrue(ActivityView.matches(e, query: "LOGIN post 200"))
+        XCTAssertTrue(ActivityView.matches(e, query: "localhost:5003"), "the note is searched")
+        XCTAssertTrue(ActivityView.matches(e, query: "fetch"), "the type label is searched")
+        XCTAssertFalse(ActivityView.matches(e, query: "login get"), "every word has to match")
+        XCTAssertFalse(ActivityView.matches(e, query: "404"))
+    }
+
     func testBrokenJSONIsShownAsIs() {
         XCTAssertEqual(RequestDetailView.displayText(Data("{oops".utf8), contentType: "application/json"), "{oops")
     }
