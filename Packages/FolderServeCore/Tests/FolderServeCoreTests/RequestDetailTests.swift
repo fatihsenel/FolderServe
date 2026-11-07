@@ -115,3 +115,63 @@ final class RequestDetailTests: XCTestCase {
         XCTAssertEqual(r.displayURL, "http://localhost:8080/a%20b/%C3%BC?q=1")
     }
 }
+
+/// One request must produce exactly one log entry, whatever path it takes through the server.
+final class LoggedOnceTests: XCTestCase {
+    var root: URL!; var server: StaticServer!; let fm = FileManager.default
+
+    override func setUpWithError() throws {
+        root = fm.temporaryDirectory.appendingPathComponent("once-\(UUID().uuidString)")
+        try fm.createDirectory(at: root.appendingPathComponent("assets"), withIntermediateDirectories: true)
+        try "<html><body>x</body></html>".write(to: root.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+        try "export const a=1;".write(to: root.appendingPathComponent("chunk-A.js"), atomically: true, encoding: .utf8)
+        try #"{"u":"https://localhost:5003/"}"#.write(to: root.appendingPathComponent("assets/config.json"), atomically: true, encoding: .utf8)
+    }
+    override func tearDownWithError() throws { server?.stop(); try? fm.removeItem(at: root) }
+
+    private func counts(after requests: [String], options: ServeOptions) async throws -> [String: Int] {
+        server = StaticServer(root: root, port: 0, options: options)
+        let box = LogBox(); server.onRequest = { box.add($0) }
+        let port = try await server.start()
+        for r in requests { _ = RawHTTP.request(port: port, r.replacingOccurrences(of: "{HOST}", with: "127.0.0.1:\(port)")) }
+        try await Task.sleep(nanoseconds: 400_000_000)
+        return Dictionary(box.entries.map { ($0.method + " " + $0.path, 1) }, uniquingKeysWith: +)
+    }
+
+    func testEveryKindOfRequestIsLoggedExactlyOnce() async throws {
+        let get = { (p: String, extra: String) in "GET \(p) HTTP/1.1\r\nHost: {HOST}\r\n\(extra)\r\n" }
+        let c = try await counts(after: [
+            get("/chunk-A.js", "Sec-Fetch-Dest: script\r\n"),
+            get("/assets/config.json", "Sec-Fetch-Dest: empty\r\n"),
+            get("/index.html", ""), get("/deep/link", "Accept: text/html\r\n"), get("/missing.js", ""),
+            get("/chunk-A.js", "Range: bytes=0-3\r\n"),
+            "HEAD /chunk-A.js HTTP/1.1\r\nHost: {HOST}\r\n\r\n",
+            "OPTIONS /x HTTP/1.1\r\nHost: {HOST}\r\n\r\n",
+            "GET / HTTP/1.1\r\nHost: evil.example\r\n\r\n",
+        ], options: ServeOptions(liveReload: true, cors: true,
+                                 proxyRules: [ProxyRule(prefix: "/uiapi", target: "https://localhost:5003")]))
+        XCTAssertEqual(c["GET /chunk-A.js"], 2, "the plain GET and the Range GET are two requests, one entry each")
+        XCTAssertEqual(c["GET /assets/config.json"], 1)
+        XCTAssertEqual(c["GET /index.html"], 1)
+        XCTAssertEqual(c["GET /deep/link"], 1)
+        XCTAssertEqual(c["GET /missing.js"], 1)
+        XCTAssertEqual(c["HEAD /chunk-A.js"], 1)
+        XCTAssertEqual(c["OPTIONS /x"], 1)
+        XCTAssertEqual(c["GET /"], 1, "the foreign-host rejection is logged once too")
+        XCTAssertEqual(c.values.reduce(0, +), 9)
+    }
+
+    func testThirtyConcurrentRequestsGiveThirtyEntries() async throws {
+        server = StaticServer(root: root, port: 0, options: ServeOptions())
+        let box = LogBox(); server.onRequest = { box.add($0) }
+        let port = try await server.start()
+        await withTaskGroup(of: Void.self) { group in
+            for i in 0..<30 {
+                group.addTask { _ = RawHTTP.request(port: port, "GET /chunk-A.js?i=\(i) HTTP/1.1\r\nHost: 127.0.0.1:\(port)\r\n\r\n") }
+            }
+        }
+        try await Task.sleep(nanoseconds: 500_000_000)
+        XCTAssertEqual(box.entries.count, 30)
+        XCTAssertEqual(Set(box.entries.map(\.id)).count, 30, "every entry has its own id")
+    }
+}

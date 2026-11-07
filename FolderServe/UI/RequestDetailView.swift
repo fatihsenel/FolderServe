@@ -118,7 +118,8 @@ struct RequestDetailView: View {
             ("Status", "\(entry.status) \(HTTPStatus.reason(entry.status))".trimmingCharacters(in: .whitespaces)),
             ("Size", ByteCountFormatter.string(fromByteCount: entry.bytes, countStyle: .file)),
         ]
-        if let ms = entry.durationMs { rows.append(("Time", ms < 1 ? "< 1 ms" : "\(ms) ms")) }
+        rows.append(("Started", entry.date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute().second().secondFraction(.fractional(3)))))
+        if let ms = entry.durationMs { rows.append(("Took", ms < 1 ? "< 1 ms" : "\(ms) ms")) }
         if let up = entry.upstreamURL { rows.append(("Forwarded to", up)) }
         if let file = entry.servedFile { rows.append(("Served from", file)) }
         if entry.rewritten { rows.append(("Note", "The proxy address was replaced in this file when it was served.")) }
