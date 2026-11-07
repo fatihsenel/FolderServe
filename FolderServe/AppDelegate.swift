@@ -14,7 +14,7 @@ final class FolderServeAppDelegate: NSObject, NSApplicationDelegate {
         guard !Self.isRunningTests else { return }
         MainActor.assumeIsolated {
             Self.restoreServers(manager: AppServices.manager)
-            if SplashSettings.enabled && !Self.launchedAsLoginItem { SplashController.shared.show() }
+            if SplashSettings.enabled && !Self.launchedAsLoginItem { SplashController.shared.show(gatingMainWindow: true) }
         }
     }
 

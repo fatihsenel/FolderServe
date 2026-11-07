@@ -93,14 +93,65 @@ private struct SignalSplash: View {
     }
 }
 
+/// Keeps the main window invisible while the launch splash plays, then fades it in.
+@MainActor
+final class SplashGate {
+    static let shared = SplashGate()
+    private(set) var active = false
+    private var held: [NSWindow] = []
+
+    func begin() {
+        active = true
+        for w in NSApp.windows { hold(w) }
+    }
+
+    /// Called by windows as they appear; hides them if a splash is in progress.
+    func hideIfNeeded(_ w: NSWindow) { if active { hold(w) } }
+
+    func release() {
+        guard active else { return }
+        active = false
+        let windows = held
+        held = []
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.4
+            for w in windows { w.animator().alphaValue = 1 }
+        } completionHandler: {
+            for w in windows { w.ignoresMouseEvents = false }
+        }
+    }
+
+    private func hold(_ w: NSWindow) {
+        guard !held.contains(w) else { return }
+        w.alphaValue = 0
+        w.ignoresMouseEvents = true
+        held.append(w)
+    }
+}
+
+/// Reports the hosting NSWindow of a SwiftUI view.
+struct WindowReader: NSViewRepresentable {
+    let onWindow: (NSWindow) -> Void
+    func makeNSView(context: Context) -> NSView { ReaderView(onWindow) }
+    func updateNSView(_ view: NSView, context: Context) {}
+    private final class ReaderView: NSView {
+        let onWindow: (NSWindow) -> Void
+        init(_ onWindow: @escaping (NSWindow) -> Void) { self.onWindow = onWindow; super.init(frame: .zero) }
+        required init?(coder: NSCoder) { fatalError() }
+        override func viewDidMoveToWindow() { if let window { onWindow(window) } }
+    }
+}
+
 /// Shows the splash in a borderless floating window and fades it out.
 @MainActor
 final class SplashController {
     static let shared = SplashController()
     private var window: NSWindow?
 
-    func show() {
+    /// `gatingMainWindow`: hold the main window back until the splash starts to fade (launch only).
+    func show(gatingMainWindow: Bool = false) {
         guard window == nil else { return }
+        if gatingMainWindow { SplashGate.shared.begin() }
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let hosting = NSHostingView(rootView:
             SplashView(time: reduce ? SplashSettings.duration : nil)
@@ -122,6 +173,7 @@ final class SplashController {
     }
 
     func dismiss() {
+        SplashGate.shared.release()
         guard let w = window else { return }
         window = nil
         NSAnimationContext.runAnimationGroup({ $0.duration = 0.35; w.animator().alphaValue = 0 },
