@@ -66,3 +66,7 @@ private struct SettingRow: View {
         }
     }
 }
+
+#if DEBUG
+#Preview { SettingsView().environment(PreviewData.manager(populated: false)) }
+#endif

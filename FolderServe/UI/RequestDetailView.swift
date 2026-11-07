@@ -156,7 +156,11 @@ struct RequestDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             if let body = entry.requestBody {
                 let type = entry.requestHeaders.first { $0.name == "content-type" }?.value
-                bodyText(Self.displayText(body, contentType: type), truncated: entry.requestBodyTruncated, copyable: true)
+                if !entry.requestBodyTruncated, let root = Self.jsonRoot(body) {
+                    jsonBody(root, text: Self.displayText(body, contentType: type), copyable: true)
+                } else {
+                    bodyText(Self.displayText(body, contentType: type), truncated: entry.requestBodyTruncated, copyable: true)
+                }
             } else if entry.bodiesDropped {
                 info("The body was dropped to keep memory use low.")
             } else {
@@ -188,7 +192,11 @@ struct RequestDetailView: View {
             } else if entry.category == .font, let font = Self.sampleFont(from: data) {
                 fontPreview(font)
             } else if Self.isText(data, contentType: type) {
-                bodyText(Self.displayText(data, contentType: type), truncated: content.truncated, copyable: false, total: content.totalSize)
+                if !content.truncated, let root = Self.jsonRoot(data) {
+                    jsonBody(root, text: Self.displayText(data, contentType: type), copyable: false)
+                } else {
+                    bodyText(Self.displayText(data, contentType: type), truncated: content.truncated, copyable: false, total: content.totalSize)
+                }
             } else if entry.category == .media {
                 info("Audio and video preview is not available yet. \(ByteCountFormatter.string(fromByteCount: content.totalSize ?? Int64(data.count), countStyle: .file)), \(type ?? "unknown type").")
             } else if content.truncated, entry.category == .img {
@@ -224,6 +232,17 @@ struct RequestDetailView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 12).fill(.black.opacity(0.18)))
+    }
+
+    /// A JSON body as a tree whose objects and arrays can be folded.
+    private func jsonBody(_ root: Any, text: String, copyable: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            JSONTreeView(root: root, copyText: copyable ? text : nil)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12).fill(.black.opacity(0.18)))
+            if let note = content?.note { info(note) }
+        }
     }
 
     private func bodyText(_ text: String, truncated: Bool, copyable: Bool, total: Int64? = nil) -> some View {
@@ -310,6 +329,38 @@ struct RequestDetailView: View {
         return raw
     }
 
+    static let jsonKeyColor = Color(red: 0.55, green: 0.75, blue: 1.0)
+    static let jsonStringColor = Theme.running
+    static let jsonNumberColor = Theme.warning
+    static let jsonLiteralColor = Color(red: 1.0, green: 0.55, blue: 0.80)
+    /// Bodies bigger than this are shown without colour, to keep the view quick.
+    static let jsonHighlightLimit = 256 * 1024
+
+    /// The parsed JSON of a body when it is an object or array small enough to show as a tree; nil otherwise
+    /// (invalid or cut-off JSON, scalars, other content), so callers show plain text.
+    static func jsonRoot(_ data: Data) -> Any? {
+        guard data.count <= jsonHighlightLimit,
+              let obj = try? JSONSerialization.jsonObject(with: data), obj is [String: Any] || obj is [Any] else { return nil }
+        return obj
+    }
+
+    /// Text and colour of a JSON value that has no children.
+    static func jsonLeaf(_ value: Any) -> (text: String, color: Color) {
+        if value is NSNull { return ("null", jsonLiteralColor) }
+        if let n = value as? NSNumber {
+            if CFGetTypeID(n) == CFBooleanGetTypeID() { return (n.boolValue ? "true" : "false", jsonLiteralColor) }
+            return (n.stringValue, jsonNumberColor)
+        }
+        return (jsonQuoted(value as? String ?? "\(value)"), jsonStringColor)
+    }
+
+    /// A string as a JSON literal, quotes and escapes included.
+    static func jsonQuoted(_ s: String) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        return (try? encoder.encode(s)).map { String(decoding: $0, as: UTF8.self) } ?? "\"\(s)\""
+    }
+
     /// A SwiftUI font made from font file data, for a sample line.
     static func sampleFont(from data: Data) -> Font? {
         guard let descriptor = CTFontManagerCreateFontDescriptorFromData(data as CFData) else { return nil }
@@ -344,4 +395,146 @@ struct RepeatNote: View {
     }
 
     private var gap: String { info.gapMs < 1000 ? "\(info.gapMs) ms" : String(format: "%.1f s", Double(info.gapMs) / 1000) }
+}
+
+// MARK: - Foldable JSON
+
+/// "Collapse all" / "Expand all": each node reacts to a new `serial`.
+struct JSONFoldCommand: Equatable {
+    var open: Bool
+    var serial: Int
+}
+
+/// A JSON object or array shown as a tree: every object and array has an arrow to fold it.
+struct JSONTreeView: View {
+    let root: Any
+    var copyText: String?
+    /// Paths ("/user/roles", array items by index) of nodes that start folded.
+    var folded: Set<String> = []
+    @State private var command = JSONFoldCommand(open: true, serial: 0)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 14) {
+                Button { command = JSONFoldCommand(open: false, serial: command.serial + 1) } label: {
+                    Label("Collapse all", systemImage: "arrow.down.right.and.arrow.up.left")
+                }
+                Button { command = JSONFoldCommand(open: true, serial: command.serial + 1) } label: {
+                    Label("Expand all", systemImage: "arrow.up.left.and.arrow.down.right")
+                }
+                Spacer()
+                if let copyText {
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(copyText, forType: .string)
+                    } label: { Label("Copy", systemImage: "doc.on.doc") }
+                }
+            }
+            .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
+            JSONNodeView(key: nil, value: root, isLast: true, depth: 0, path: "", folded: folded, command: command)
+        }
+    }
+}
+
+private struct JSONNodeView: View {
+    let key: String?
+    let value: Any
+    let isLast: Bool
+    let depth: Int
+    let path: String
+    let folded: Set<String>
+    let command: JSONFoldCommand
+    @State private var open: Bool
+
+    /// Very long arrays and objects start folded so a big response does not flood the panel.
+    private static let foldedAbove = 100
+
+    init(key: String?, value: Any, isLast: Bool, depth: Int, path: String, folded: Set<String>, command: JSONFoldCommand) {
+        self.key = key
+        self.value = value
+        self.isLast = isLast
+        self.depth = depth
+        self.path = path
+        self.folded = folded
+        self.command = command
+        let count = (value as? [Any])?.count ?? (value as? [String: Any])?.count ?? 0
+        _open = State(initialValue: count <= Self.foldedAbove && !folded.contains(path))
+    }
+
+    private static let mono = Font.system(size: 12, design: .monospaced)
+
+    private var children: [(key: String?, value: Any)]? {
+        if let d = value as? [String: Any] { return d.keys.sorted().map { (Optional($0), d[$0]!) } }
+        if let a = value as? [Any] { return a.map { (nil, $0) } }
+        return nil
+    }
+    private var isArray: Bool { value is [Any] }
+    private var comma: AttributedString { AttributedString(isLast ? "" : ",") }
+
+    private func keyText() -> AttributedString {
+        guard let key else { return AttributedString() }
+        var k = AttributedString(RequestDetailView.jsonQuoted(key))
+        k.foregroundColor = RequestDetailView.jsonKeyColor
+        return k + AttributedString(": ")
+    }
+
+    var body: some View {
+        if let kids = children, !kids.isEmpty {
+            container(kids)
+        } else {
+            leaf
+        }
+    }
+
+    private var leaf: some View {
+        var v: AttributedString
+        if let kids = children, kids.isEmpty {
+            v = AttributedString(isArray ? "[]" : "{}")
+        } else {
+            let l = RequestDetailView.jsonLeaf(value)
+            v = AttributedString(l.text)
+            v.foregroundColor = l.color
+        }
+        return Text(keyText() + v + comma)
+            .font(Self.mono).textSelection(.enabled)
+            .padding(.leading, 14)
+    }
+
+    private func container(_ kids: [(key: String?, value: Any)]) -> some View {
+        let openBracket = isArray ? "[" : "{"
+        let closeBracket = isArray ? "]" : "}"
+        return VStack(alignment: .leading, spacing: 0) {
+            Button { open.toggle() } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Image(systemName: open ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 8, weight: .bold)).frame(width: 10)
+                    Text(header(kids.count, open: openBracket, close: closeBracket)).font(Self.mono)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if open {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(kids.enumerated()), id: \.offset) { i, kid in
+                        JSONNodeView(key: kid.key, value: kid.value, isLast: i == kids.count - 1, depth: depth + 1,
+                                     path: path + "/" + (kid.key ?? String(i)), folded: folded, command: command)
+                    }
+                }
+                .padding(.leading, 14)
+                Text(closeBracket + (isLast ? "" : ",")).font(Self.mono).padding(.leading, 14)
+            }
+        }
+        // The top level always stays open, so "Collapse all" leaves something to see.
+        .onChange(of: command) { _, c in if depth > 0 || c.open { open = c.open } }
+    }
+
+    private func header(_ count: Int, open openBracket: String, close closeBracket: String) -> AttributedString {
+        var h = keyText() + AttributedString(openBracket)
+        if !open {
+            var summary = AttributedString(" … \(count) \(isArray ? (count == 1 ? "item" : "items") : (count == 1 ? "key" : "keys")) ")
+            summary.foregroundColor = .secondary
+            h += summary + AttributedString(closeBracket) + comma
+        }
+        return h
+    }
 }
