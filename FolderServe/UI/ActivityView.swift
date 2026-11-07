@@ -60,6 +60,9 @@ struct ActivityView: View {
             }
             .animation(.smooth(duration: 0.25), value: selectedID)
         }
+        // The details belong to the list that was on screen: close them when the list changes.
+        .onChange(of: category) { _, _ in selectedID = nil }
+        .onChange(of: filter) { _, _ in selectedID = nil }
         .padding(28)
     }
 
