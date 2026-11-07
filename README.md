@@ -122,3 +122,9 @@ While you drag a folder over the window the list dims and a landing pad appears 
 a burst of rings and sparks plays where you let go, the new card pops in, scrolls into view and glows green for a
 couple of seconds (also when you drop a folder that is already listed, or open one via the Dock or `open -a`).
 With Reduce Motion on, the dashes, ripples and sparks are replaced by a simple fade.
+
+## Removing a folder
+
+The trash button on a card opens a confirmation over the window: the folder's name, framework and path, then what
+will happen (its server stops, its settings such as a custom name and proxy rules are forgotten) and a reminder that
+the files in the folder are never deleted. Cancel (or Esc, or a click outside) keeps everything; Remove confirms.

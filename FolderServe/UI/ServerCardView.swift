@@ -77,7 +77,7 @@ struct ServerCardView: View {
             }
             Button { open() } label: { Label("Open", systemImage: "safari") }.disabled(!isRunning)
             Button { copyURL() } label: { Label("Copy URL", systemImage: "doc.on.doc") }.disabled(!isRunning)
-            Button(role: .destructive) { manager.remove(entryID) } label: { Image(systemName: "trash") }
+            Button(role: .destructive) { manager.requestRemoval(entryID) } label: { Image(systemName: "trash") }
                 .help("Remove this folder")
         }
         .controlSize(.small)
