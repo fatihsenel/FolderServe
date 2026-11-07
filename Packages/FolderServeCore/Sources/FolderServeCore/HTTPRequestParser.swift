@@ -7,12 +7,14 @@ public struct HTTPRequest: Equatable, Sendable {
     public var rawQuery: String?
     /// Header names are lowercased.
     public var headers: [String: String]
+    /// Arrived over TLS (set by the server; the parser cannot know).
+    public var secure = false
 
     /// The URL as the browser used it (http + Host header + path + query), for display.
     public var displayURL: String {
         let host = headers["host"] ?? "127.0.0.1"
         let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
-        return "http://\(host)\(encoded)" + (rawQuery.map { "?" + $0 } ?? "")
+        return "\(secure ? "https" : "http")://\(host)\(encoded)" + (rawQuery.map { "?" + $0 } ?? "")
     }
 
     public init(method: String, path: String, rawQuery: String?, headers: [String: String]) {

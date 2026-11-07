@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import os
+import Security
 import FolderServeCore
 
 @MainActor @Observable
@@ -30,6 +31,8 @@ final class ServerManager {
     @ObservationIgnored private let highlightDuration: TimeInterval
     @ObservationIgnored private var highlightTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let certificateDirectory: URL
+    @ObservationIgnored private var cachedIdentity: SecIdentity?
     private static let dotfilesKey = "serveDotfiles"
     private static let startAtLaunchKey = "startServersAtLaunch"
     @ObservationIgnored private var servers: [UUID: StaticServer] = [:]
@@ -40,7 +43,9 @@ final class ServerManager {
 
     init(store: ServerStoring, defaultStartPort: UInt16 = 8080, minSearchDuration: TimeInterval = 1.5,
          bodyBudget: Int = 20 * 1024 * 1024, highlightDuration: TimeInterval = 2.2,
-         defaults: UserDefaults = .standard) {
+         defaults: UserDefaults = .standard, certificateDirectory: URL? = nil) {
+        self.certificateDirectory = certificateDirectory ?? FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("FolderServe/Certificates")
         self.store = store
         self.highlightDuration = highlightDuration
         self.bodyBudget = bodyBudget
@@ -54,7 +59,10 @@ final class ServerManager {
     }
 
     func url(for id: UUID) -> URL? {
-        if case .running(let port) = statuses[id] { return URL(string: "http://127.0.0.1:\(port)/") }
+        if case .running(let port) = statuses[id] {
+            let secure = entries.first { $0.id == id }?.options.https == true
+            return URL(string: "\(secure ? "https" : "http")://127.0.0.1:\(port)/")
+        }
         return nil
     }
 
@@ -163,9 +171,14 @@ final class ServerManager {
 
     func setOptions(_ id: UUID, _ options: ServeOptions) {
         guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
+        let schemeChanged = entries[i].options.https != options.https
         entries[i].options = options
         servers[id]?.updateOptions(options)
         persist()
+        if schemeChanged, servers[id] != nil {   // http ⇄ https needs a new listener
+            teardown(id)
+            Task { await startNow(id) }
+        }
     }
 
     func setServeDotfiles(_ value: Bool) {
@@ -219,6 +232,13 @@ final class ServerManager {
         persist()
     }
 
+    /// A server for the folder; with HTTPS on it carries the (created-on-demand) local certificate.
+    private func makeServer(root: URL, port: UInt16, entry: ServerEntry) throws -> StaticServer {
+        guard entry.options.https else { return StaticServer(root: root, port: port, options: entry.options) }
+        if cachedIdentity == nil { cachedIdentity = try LocalCertificate.identity(in: certificateDirectory) }
+        return StaticServer(root: root, port: port, options: entry.options, identity: cachedIdentity)
+    }
+
     func startNow(_ id: UUID) async {
         guard servers[id] == nil, !starting.contains(id), let entry = entries.first(where: { $0.id == id }) else { return }
         starting.insert(id)
@@ -231,8 +251,8 @@ final class ServerManager {
         }
         projectKinds[id] = ProjectDetector.detect(root: folder)
         if let wanted = entry.preferredPort {
-            let server = StaticServer(root: folder, port: wanted, options: entry.options)
             do {
+                let server = try makeServer(root: folder, port: wanted, entry: entry)
                 let port = try await server.start()
                 attach(server, id: id, port: port)
             } catch StaticServerError.portInUse {
@@ -257,8 +277,8 @@ final class ServerManager {
         for _ in 0..<10 {
             guard let free = PortFinder.firstFree(startingAt: candidate) else { break }
             if free > candidate { busy.append(contentsOf: candidate..<free) }   // ports PortFinder skipped because they are in use
-            let server = StaticServer(root: folder, port: free, options: entry.options)
             do {
+                let server = try makeServer(root: folder, port: free, entry: entry)
                 let port = try await server.start()
                 attach(server, id: id, port: port, searching: animate)
                 if animate {
@@ -274,6 +294,10 @@ final class ServerManager {
                 publish()
                 guard free < UInt16.max else { break }
                 candidate = free + 1
+            } catch is LocalCertificateError {
+                releaseScope(id)
+                statuses[id] = .error("Could not create the HTTPS certificate")
+                return
             } catch {
                 break
             }

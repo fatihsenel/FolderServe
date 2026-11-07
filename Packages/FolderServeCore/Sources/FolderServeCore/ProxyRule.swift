@@ -171,10 +171,10 @@ public struct ProxyRule: Codable, Equatable, Sendable, Identifiable {
 
     /// A web page on another origin must not be able to drive your backend through this proxy.
     /// Allows requests without Origin (curl, same-origin GETs) and requests whose Origin is this very server.
-    public static func isSameOriginRequest(headers: [String: String]) -> Bool {
+    public static func isSameOriginRequest(headers: [String: String], secure: Bool = false) -> Bool {
         if let site = headers["sec-fetch-site"]?.lowercased(), site == "cross-site" || site == "same-site" { return false }
         guard let origin = headers["origin"] else { return true }
-        guard let host = headers["host"]?.lowercased(), origin.lowercased() == "http://" + host else { return false }
+        guard let host = headers["host"]?.lowercased(), origin.lowercased() == (secure ? "https://" : "http://") + host else { return false }
         return true
     }
 }

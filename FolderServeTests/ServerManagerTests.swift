@@ -76,6 +76,22 @@ final class ServerManagerTests: XCTestCase {
         XCTAssertEqual(body, "hello")
     }
 
+    func testHTTPSToggleRestartsOnTheSameFolderWithAnHTTPSURL() async throws {
+        let f = try folder()
+        let certs = f.deletingLastPathComponent().appendingPathComponent("certs-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: certs) }
+        let m = ServerManager(store: InMemoryStore(), defaultStartPort: startPort, minSearchDuration: 0, certificateDirectory: certs)
+        let id = m.add(folder: f)
+        await expectEventually { if case .running = m.statuses[id] { return true } else { return false } }
+        XCTAssertEqual(m.url(for: id)?.scheme, "http")
+        var options = try XCTUnwrap(m.entries.first { $0.id == id }).options
+        options.https = true
+        m.setOptions(id, options)
+        await expectEventually { m.url(for: id)?.scheme == "https" }
+        XCTAssertEqual(m.url(for: id)?.scheme, "https")
+        m.stop(id)
+    }
+
     func testDetectsFrameworkWhenServerStarts() async throws {
         let f = try folder()
         try "{\"dependencies\": {\"vue\": \"3\"}}".write(to: f.appendingPathComponent("package.json"), atomically: true, encoding: .utf8)

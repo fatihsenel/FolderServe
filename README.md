@@ -68,6 +68,15 @@ Turning it on lets *any* website open in your browser read those files, so leave
 It does not help with errors from calling an API on another origin from your served app: for that, use the
 API proxy below.
 
+## HTTPS
+
+Each folder has an **HTTPS** switch (off by default) for features that need a secure context (service workers,
+some cookies, clipboard/camera APIs). The server then answers on `https://127.0.0.1:<port>/` using a self-signed
+certificate for `localhost`, `127.0.0.1` and `::1`, created once with the system's `openssl` and stored in the app's
+container. It is not issued by a trusted authority, so the browser shows a one-time warning: choose
+Advanced → Proceed, or add `localhost.pem` (in `~/Library/Containers/…/FolderServe/Certificates`) to Keychain Access
+and trust it. Switching the toggle restarts that folder's server.
+
 ## API proxy
 
 The **Proxy** button on a folder card forwards requests that start with a prefix to another server, so the

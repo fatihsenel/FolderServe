@@ -53,6 +53,8 @@ struct ServerCardView: View {
                 Toggle("Live reload", isOn: binding(\.liveReload, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
                 Toggle("SPA mode", isOn: binding(\.spaMode, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
                     .help("Serve index.html for unknown paths so client-side routers work")
+                Toggle("HTTPS", isOn: binding(\.https, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
+                    .help("Serve over https:// with a self-signed localhost certificate, for features that need a secure context. Your browser shows a one-time warning for it.")
                 HStack(spacing: 4) {
                     Toggle("CORS", isOn: binding(\.cors, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
                         .help("Let pages from other origins (e.g. an app on localhost:4200) read these files. Adds Access-Control-Allow-Origin and answers preflight requests.")
@@ -170,7 +172,7 @@ struct ServerCardView: View {
             PortScanView(search: search)
         case .running(let port):
             Button { open() } label: {
-                Text("http://127.0.0.1:\(String(port))/").font(.system(.callout, design: .monospaced))
+                Text(manager.url(for: entryID)?.absoluteString ?? "http://127.0.0.1:\(String(port))/").font(.system(.callout, design: .monospaced))
             }.buttonStyle(.link)
         case .stopped:
             Text("Stopped").font(.callout).foregroundStyle(.secondary)
