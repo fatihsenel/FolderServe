@@ -15,7 +15,10 @@ struct ServerCardView: View {
                 HStack(spacing: 16) {
                     statusIcon
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(entry.displayName).font(.system(size: 19, weight: .semibold, design: .rounded))
+                        HStack(spacing: 8) {
+                            Text(entry.displayName).font(.system(size: 19, weight: .semibold, design: .rounded))
+                            if let kind = manager.projectKinds[entryID] { ProjectBadge(kind: kind) }
+                        }
                         Text(entry.folderPath).font(.caption).foregroundStyle(.secondary)
                             .lineLimit(1).truncationMode(.middle)
                         statusLine
@@ -27,8 +30,8 @@ struct ServerCardView: View {
                 }
                 Divider().opacity(0.4)
                 HStack(spacing: 18) {
-                    Toggle("Live reload", isOn: binding(\.liveReload, entry)).toggleStyle(.switch)
-                    Toggle("SPA mode", isOn: binding(\.spaMode, entry)).toggleStyle(.switch)
+                    Toggle("Live reload", isOn: binding(\.liveReload, entry)).toggleStyle(GlowToggleStyle())
+                    Toggle("SPA mode", isOn: binding(\.spaMode, entry)).toggleStyle(GlowToggleStyle())
                         .help("Serve index.html for unknown paths so client-side routers work")
                     Spacer()
                     Button { open() } label: { Label("Open", systemImage: "safari") }.disabled(!isRunning)

@@ -23,11 +23,7 @@ struct SidebarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
-                Image(systemName: "globe.americas.fill").font(.system(size: 20))
-                    .foregroundStyle(.white)
-                    .frame(width: 36, height: 36)
-                    .background(LinearGradient(colors: [Theme.accent, Color(red: 0.8, green: 0.35, blue: 0.9)],
-                                               startPoint: .topLeading, endPoint: .bottomTrailing), in: Circle())
+                Image(nsImage: NSImage(named: "AppIcon") ?? NSImage()).resizable().frame(width: 38, height: 38)
                 Text("FolderServe").font(.system(size: 16, weight: .semibold, design: .rounded))
             }
             .padding(.bottom, 18)

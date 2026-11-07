@@ -47,3 +47,13 @@ xcodebuild test -scheme FolderServe -destination 'platform=macOS'        # app: 
 - Requests whose `Host` header is not a loopback name (`localhost`, `*.localhost`, `127.x.x.x`, `[::1]`) get 403, to block DNS-rebinding
   attacks from web pages. This also means tunnels that forward a public hostname (ngrok etc.) are rejected.
 - HTTP only (no HTTPS), no LAN access, no CSS hot-swap — see the spec's out-of-scope list.
+
+## Project badges
+
+Each server card (and menu bar row) shows the detected framework: Angular, React, Vue, Svelte, Next.js,
+Nuxt, Astro, Vite or plain HTML. Source folders are identified from `package.json` / config files; built
+output (`dist/`, `build/`) from markers in `index.html`. Detection for built output is heuristic. The mark
+appears once the server has started. Logos are from [Simple Icons](https://simpleicons.org) (CC0); the
+framework names and logos are trademarks of their owners.
+
+The app icon source is `branding/AppIcon.svg`.

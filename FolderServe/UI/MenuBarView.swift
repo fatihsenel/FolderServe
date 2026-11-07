@@ -10,7 +10,7 @@ struct MenuBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Image(systemName: "globe.americas.fill").foregroundStyle(Theme.accent)
+                Image(nsImage: NSImage(named: "AppIcon") ?? NSImage()).resizable().frame(width: 20, height: 20)
                 Text("FolderServe").font(.system(size: 14, weight: .semibold, design: .rounded))
                 Spacer()
                 Text(summary).font(.caption).foregroundStyle(.secondary)
@@ -71,7 +71,10 @@ private struct MenuBarRow: View {
             Circle().fill(Theme.statusColor(status)).frame(width: 9, height: 9)
                 .shadow(color: Theme.statusColor(status).opacity(0.8), radius: 4)
             VStack(alignment: .leading, spacing: 1) {
-                Text(entry.displayName).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                HStack(spacing: 5) {
+                    Text(entry.displayName).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                    if let kind = manager.projectKinds[entry.id] { ProjectBadge(kind: kind, showsName: false) }
+                }
                 Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 8)

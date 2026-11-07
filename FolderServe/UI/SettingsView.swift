@@ -55,7 +55,7 @@ private struct SettingRow: View {
                 Text(detail).font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
-            Toggle("", isOn: $isOn).labelsHidden().toggleStyle(.switch)
+            Toggle("", isOn: $isOn).labelsHidden().toggleStyle(GlowToggleStyle())
         }
     }
 }

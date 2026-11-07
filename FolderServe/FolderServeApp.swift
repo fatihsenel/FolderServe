@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import FolderServeCore
 
 @main
@@ -16,8 +17,15 @@ struct FolderServeApp: App {
         MenuBarExtra {
             MenuBarView().environment(manager)
         } label: {
-            Image(systemName: "globe.americas.fill")
+            Image(nsImage: Self.menuBarGlyph)
         }
         .menuBarExtraStyle(.window)
     }
+
+    private static let menuBarGlyph: NSImage = {
+        let image = NSImage(named: "MenuBarGlyph") ?? NSImage(systemSymbolName: "folder", accessibilityDescription: nil) ?? NSImage()
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = true
+        return image
+    }()
 }

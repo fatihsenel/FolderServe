@@ -23,7 +23,7 @@ enum PreviewData {
             line(a.id, "GET", "/", 200, 4_210, 9), line(a.id, "GET", "/assets/app.css", 200, 18_400, 8),
             line(b.id, "GET", "/users/42", 200, 1_024, 5), line(b.id, "GET", "/favicon.ico", 404, 612, 4),
             line(a.id, "GET", "/old-page", 301, 140, 2), line(b.id, "GET", "/.env", 403, 580, 1),
-        ])
+        ], kinds: [a.id: .angular, b.id: .react, d.id: .vue])
         return m
     }
 }
