@@ -80,7 +80,15 @@ struct RequestDetailView: View {
             Text(entry.url.isEmpty ? entry.path : entry.url)
                 .font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
                 .lineLimit(3).truncationMode(.middle)
+            if let info = repeatInfo { RepeatNote(info: info) }
         }
+    }
+
+    /// Set when the same URL was requested before (the likely cause is spelled out in the note).
+    private var repeatInfo: RepeatInfo? {
+        guard let index = manager.log.firstIndex(where: { $0.id == line.id }) else { return nil }
+        let earlier = manager.log[..<index].filter { $0.serverID == line.serverID }.map(\.entry)
+        return RepeatAnalysis.analyze(entry, earlier: earlier)
     }
 
     private var statusColor: Color {
@@ -307,4 +315,33 @@ struct RequestDetailView: View {
         guard let descriptor = CTFontManagerCreateFontDescriptorFromData(data as CFData) else { return nil }
         return Font(CTFontCreateWithFontDescriptor(descriptor, 26, nil))
     }
+}
+
+
+/// "Requested before" card: how long ago, why it probably happened, and which request headers differ.
+struct RepeatNote: View {
+    let info: RepeatInfo
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Requested \(info.count) times · previous one \(gap) earlier", systemImage: "arrow.triangle.2.circlepath")
+                .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.warning)
+            Text(info.headline).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+            if info.differences.isEmpty {
+                Text("Request headers are identical.").font(.system(size: 11)).foregroundStyle(.secondary)
+            } else {
+                ForEach(info.differences, id: \.header) { d in
+                    Text("\(d.header): \(d.earlier ?? "none") → \(d.this ?? "none")")
+                        .font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                        .lineLimit(2).truncationMode(.middle).textSelection(.enabled)
+                }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Theme.warning.opacity(0.12)))
+        .accessibilityElement(children: .combine)
+    }
+
+    private var gap: String { info.gapMs < 1000 ? "\(info.gapMs) ms" : String(format: "%.1f s", Double(info.gapMs) / 1000) }
 }

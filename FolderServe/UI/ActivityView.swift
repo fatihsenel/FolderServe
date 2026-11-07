@@ -7,11 +7,16 @@ struct ActivityView: View {
     @State private var filter: UUID?
     @State private var category: RequestCategory?
     @State private var selectedID: UUID?
+    /// Requests that no page made (DevTools or an extension re-fetching a file) are hidden unless switched on.
+    @AppStorage("activityShowDetached") private var showDetached = false
 
     init(initialSelection: UUID? = nil) { _selectedID = State(initialValue: initialSelection) }
 
-    /// Lines of the chosen server (the category chips count these).
-    private var serverLines: [LogLine] { manager.logLines(for: filter) }
+    /// Everything logged for the chosen server.
+    private var allServerLines: [LogLine] { manager.logLines(for: filter) }
+    private var detachedCount: Int { allServerLines.filter { $0.entry.isDetached }.count }
+    /// Lines of the chosen server that are not hidden (the category chips count these).
+    private var serverLines: [LogLine] { showDetached ? allServerLines : allServerLines.filter { !$0.entry.isDetached } }
     /// What is listed: the chosen server and category.
     private var lines: [LogLine] {
         guard let category else { return serverLines }
@@ -37,7 +42,7 @@ struct ActivityView: View {
                 }
                 .frame(width: 200)
                 Button { manager.clearLog(for: filter); selectedID = nil } label: { Label("Clear", systemImage: "trash") }
-                    .disabled(serverLines.isEmpty)
+                    .disabled(allServerLines.isEmpty)
                     .help(filter == nil ? "Clear the activity of all servers" : "Clear this server's activity")
             }
             categoryChips
@@ -71,7 +76,8 @@ struct ActivityView: View {
             if lines.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "waveform.path.ecg").font(.system(size: 34, weight: .light))
-                    Text(serverLines.isEmpty ? "Requests will appear here as pages load."
+                    Text(allServerLines.isEmpty ? "Requests will appear here as pages load."
+                         : serverLines.isEmpty ? "Only requests from DevTools or extensions so far (hidden)."
                                              : "No \(category?.label ?? "") requests yet.")
                         .foregroundStyle(.secondary)
                 }
@@ -93,8 +99,26 @@ struct ActivityView: View {
         FlowLayout(spacing: 8, rowSpacing: 8) {
             chip("All", nil)
             ForEach(RequestCategory.allCases, id: \.self) { chip($0.label, $0) }
+            if detachedCount > 0 { detachedToggle }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Switches the DevTools / extension requests on or off in the list.
+    private var detachedToggle: some View {
+        Button { showDetached.toggle(); selectedID = nil } label: {
+            HStack(spacing: 6) {
+                Image(systemName: showDetached ? "eye" : "eye.slash").font(.system(size: 11, weight: .semibold))
+                Text(showDetached ? "Showing DevTools & extension requests" : "\(detachedCount) hidden: DevTools & extensions")
+                    .font(.system(size: 12, weight: .medium)).lineLimit(1)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 6).fixedSize()
+            .foregroundStyle(.secondary)
+            .overlay(Capsule().strokeBorder(.white.opacity(0.2), style: StrokeStyle(lineWidth: 0.8, dash: [3, 3])))
+        }
+        .buttonStyle(.plain)
+        .help("Requests with no page behind them (no referer, Sec-Fetch-Site: none), such as DevTools re-fetching a file")
+        .accessibilityLabel(showDetached ? "Hide DevTools and extension requests" : "Show \(detachedCount) hidden DevTools and extension requests")
     }
 
     private func chip(_ title: String, _ value: RequestCategory?) -> some View {

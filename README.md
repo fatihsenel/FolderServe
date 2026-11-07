@@ -134,6 +134,16 @@ response headers), **Payload** (request body of proxied calls, JSON pretty-print
   (`Authorization`, `Cookie`, request bodies such as passwords), as in browser dev tools.
 - Not included yet: audio/video preview, a timing waterfall, WebSocket frames, HAR export.
 
+### Why is a request listed twice?
+
+Open a request that was made before and its detail shows a **Requested N times** note: how long ago the previous one
+was, the likely cause (a preload followed by the real import, DevTools “Disable cache”, a second page load, a browser
+prefetch, or two identical requests from the browser), and the request headers that differ between the two.
+
+Requests that no page made (no referer, `Sec-Fetch-Site: none`, empty destination), which is what DevTools or an
+extension does when it re-fetches a file to show it, are **hidden from the list** and from the category counts. A dashed
+pill under the category chips says how many are hidden; click it to show them (the choice is remembered).
+
 ## Dropping folders
 
 While you drag a folder over the window the list dims and a landing pad appears ("Drop to start serving"). On drop
