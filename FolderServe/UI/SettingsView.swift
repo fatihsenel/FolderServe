@@ -6,7 +6,6 @@ struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
     @State private var showSplash = SplashSettings.enabled
-    @State private var splashStyle = SplashSettings.style
 
     var body: some View {
         @Bindable var manager = manager
@@ -28,13 +27,8 @@ struct SettingsView: View {
                 SettingRow(title: "Show splash screen",
                            detail: "A short animation when the app opens. Skipped when launched at login.",
                            isOn: Binding(get: { showSplash }, set: { showSplash = $0; SplashSettings.enabled = $0 }))
-                HStack(spacing: 12) {
-                    Picker("Splash style", selection: Binding(get: { splashStyle }, set: { splashStyle = $0; SplashSettings.style = $0 })) {
-                        ForEach(SplashStyle.allCases) { Text($0.label).tag($0) }
-                    }
-                    .pickerStyle(.segmented).labelsHidden()
-                    Button("Preview") { SplashController.shared.show(style: splashStyle) }
-                }
+                Button("Preview splash screen") { SplashController.shared.show() }
+                    .controlSize(.small)
             }
             .card()
             Text("Servers listen on 127.0.0.1 only, so other devices on your network cannot reach them.")

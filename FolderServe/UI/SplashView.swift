@@ -1,28 +1,11 @@
 import SwiftUI
 import AppKit
 
-enum SplashStyle: String, CaseIterable, Identifiable {
-    case signal, assembly, minimal
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .signal: "Signal rings"
-        case .assembly: "Folder assembly"
-        case .minimal: "Minimal"
-        }
-    }
-}
-
 enum SplashSettings {
     static let enabledKey = "showSplash"
-    static let styleKey = "splashStyle"
     static var enabled: Bool {
         get { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
-    }
-    static var style: SplashStyle {
-        get { SplashStyle(rawValue: UserDefaults.standard.string(forKey: styleKey) ?? "") ?? .signal }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: styleKey) }
     }
     static let duration: Double = 2.4
     static let size = CGSize(width: 440, height: 520)
@@ -35,7 +18,6 @@ private func lerp(_ a: Double, _ b: Double, _ t: Double) -> Double { a + (b - a)
 /// Splash content. `time` fixes the animation clock (used for static / Reduce Motion / snapshots);
 /// nil means "animate from now".
 struct SplashView: View {
-    let style: SplashStyle
     var time: Double?
     @State private var start = Date()
 
@@ -55,13 +37,7 @@ struct SplashView: View {
         .environment(\.colorScheme, .dark)
     }
 
-    @ViewBuilder private func content(at t: Double) -> some View {
-        switch style {
-        case .signal: SignalSplash(t: t)
-        case .assembly: AssemblySplash(t: t)
-        case .minimal: MinimalSplash(t: t)
-        }
-    }
+    private func content(at t: Double) -> some View { SignalSplash(t: t) }
 }
 
 private struct AppIconImage: View {
@@ -87,7 +63,7 @@ private struct Wordmark: View {
     }
 }
 
-// A — pulsing rings around the icon
+// Pulsing rings around the icon
 private struct SignalSplash: View {
     let t: Double
     var body: some View {
@@ -117,106 +93,17 @@ private struct SignalSplash: View {
     }
 }
 
-// B — file chips fly into a folder, then it goes live
-private struct AssemblySplash: View {
-    let t: Double
-    private let chips: [(name: String, color: Color, dx: Double, dy: Double, at: Double)] = [
-        ("index.html", Color(red: 0.93, green: 0.93, blue: 1.0), -150, -150, 0.3),
-        ("app.js", Color(red: 0.62, green: 0.88, blue: 0.80), 150, -120, 0.65),
-        ("style.css", Color(red: 0.69, green: 0.66, blue: 0.93), -110, -60, 1.0),
-    ]
-    private var landed: Int { chips.filter { t > $0.at + 0.5 }.count }
-    private var bump: Double {
-        // short squash each time a chip lands
-        guard let last = chips.map({ $0.at + 0.5 }).filter({ $0 < t }).max() else { return 0 }
-        let x = (t - last) / 0.25
-        return x < 1 ? sin(x * .pi) * 0.07 : 0
-    }
-
-    var body: some View {
-        VStack(spacing: 30) {
-            ZStack {
-                folder.scaleEffect(1 + bump).offset(y: 30)
-                ForEach(0..<chips.count, id: \.self) { i in
-                    let c = chips[i]
-                    let p = easeOut((t - c.at) / 0.5)
-                    if t >= c.at && p < 1 {
-                        Text(c.name).font(.system(size: 12, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(Color(red: 0.15, green: 0.12, blue: 0.4))
-                            .padding(.horizontal, 10).padding(.vertical, 5)
-                            .background(Capsule().fill(c.color))
-                            .scaleEffect(lerp(1, 0.5, p)).opacity(1 - p * 0.9)
-                            .offset(x: lerp(c.dx, 0, p), y: lerp(c.dy, 30, p))
-                    }
-                }
-            }
-            .frame(height: 300)
-            VStack(spacing: 16) {
-                Wordmark(t: t, delay: 1.0, tagline: nil)
-                HStack(spacing: 8) {
-                    Circle().fill(Theme.running).frame(width: 8, height: 8)
-                        .shadow(color: Theme.running, radius: 5).opacity(0.6 + 0.4 * sin(t * 6))
-                    Text("Live on 127.0.0.1").font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.8))
-                }
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(Capsule().fill(.white.opacity(0.1)))
-                .opacity(clamp((t - 1.7) / 0.4)).scaleEffect(lerp(0.9, 1, easeOut((t - 1.7) / 0.4)))
-            }
-        }
-        .padding(.top, 20)
-    }
-
-    private var folder: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(LinearGradient(colors: [Color(red: 0.36, green: 0.79, blue: 0.65), Color(red: 0.11, green: 0.62, blue: 0.46)], startPoint: .top, endPoint: .bottom))
-                .frame(width: 170, height: 120).offset(y: -4)
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(red: 0.36, green: 0.79, blue: 0.65)).frame(width: 64, height: 24).offset(x: -53, y: -66)
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(LinearGradient(colors: [Color(red: 0.72, green: 0.92, blue: 0.85), Color(red: 0.50, green: 0.85, blue: 0.72)], startPoint: .top, endPoint: .bottom))
-                .frame(width: 170, height: 92).offset(y: 14)
-        }
-        .shadow(color: Theme.running.opacity(0.3), radius: 20, y: 8)
-    }
-}
-
-// C — logo, progress bar, version
-private struct MinimalSplash: View {
-    let t: Double
-    private var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0" }
-    var body: some View {
-        VStack(spacing: 28) {
-            AppIconImage(size: 170)
-                .scaleEffect(lerp(0.85, 1, easeOut(t / 0.7))).opacity(clamp(t / 0.4))
-                .shadow(color: .black.opacity(0.35), radius: 20, y: 10)
-            Wordmark(t: t, delay: 0.3, tagline: nil)
-            VStack(spacing: 12) {
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.14)).frame(width: 160, height: 4)
-                    Capsule().fill(LinearGradient(colors: [Theme.running, Theme.accent], startPoint: .leading, endPoint: .trailing))
-                        .frame(width: 160 * easeOut(t / SplashSettings.duration), height: 4)
-                }
-                Text("Version \(version)").font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.5))
-            }
-            .opacity(clamp((t - 0.5) / 0.4))
-        }
-        .padding(.top, 20)
-    }
-}
-
 /// Shows the splash in a borderless floating window and fades it out.
 @MainActor
 final class SplashController {
     static let shared = SplashController()
     private var window: NSWindow?
 
-    func show(style: SplashStyle = SplashSettings.style) {
+    func show() {
         guard window == nil else { return }
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let hosting = NSHostingView(rootView:
-            SplashView(style: style, time: reduce ? SplashSettings.duration : nil)
+            SplashView(time: reduce ? SplashSettings.duration : nil)
                 .onTapGesture { [weak self] in self?.dismiss() })
         let w = NSWindow(contentRect: NSRect(origin: .zero, size: SplashSettings.size),
                          styleMask: [.borderless], backing: .buffered, defer: false)
