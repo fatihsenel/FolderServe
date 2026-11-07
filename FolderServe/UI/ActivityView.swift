@@ -10,7 +10,14 @@ struct ActivityView: View {
     /// Requests that no page made (DevTools or an extension re-fetching a file) are hidden unless switched on.
     @AppStorage("activityShowDetached") private var showDetached = false
 
-    init(initialSelection: UUID? = nil) { _selectedID = State(initialValue: initialSelection) }
+    /// The hint that rows can be opened is shown until the user opens one (or dismisses it).
+    @AppStorage("activityDetailHintSeen") private var hintSeen = false
+    @State private var hoveredID: UUID?
+
+    init(initialSelection: UUID? = nil, initiallyHovered: UUID? = nil) {
+        _selectedID = State(initialValue: initialSelection)
+        _hoveredID = State(initialValue: initiallyHovered)
+    }
 
     /// Everything logged for the chosen server.
     private var allServerLines: [LogLine] { manager.logLines(for: filter) }
@@ -82,13 +89,29 @@ struct ActivityView: View {
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, minHeight: 240)
-            } else if isSnapshot {
-                rows
             } else {
-                ScrollView { rows }
+                VStack(spacing: 8) {
+                    if !hintSeen { detailHint }
+                    if isSnapshot { rows } else { ScrollView { rows } }
+                }
             }
         }
         .card()
+    }
+
+    /// Tells new users that a request can be opened; goes away for good once one is opened or it is dismissed.
+    private var detailHint: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "cursorarrow.click.2").foregroundStyle(Theme.accent)
+            Text("Click a request to see its headers, payload and response.").font(.callout)
+            Spacer(minLength: 8)
+            Button { hintSeen = true } label: { Image(systemName: "xmark").font(.system(size: 10, weight: .bold)) }
+                .buttonStyle(.plain).foregroundStyle(.secondary).help("Hide this tip")
+                .accessibilityLabel("Hide this tip")
+        }
+        .padding(.vertical, 8).padding(.horizontal, 12)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.accent.opacity(0.16)))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.accent.opacity(0.35), lineWidth: 0.5))
     }
 
     private func detail(_ line: LogLine) -> some View {
@@ -164,17 +187,43 @@ struct ActivityView: View {
                     Spacer(minLength: 8)
                     Text(ByteCountFormatter.string(fromByteCount: line.entry.bytes, countStyle: .file))
                         .foregroundStyle(.secondary)
+                    Text(Self.durationText(line.entry.durationMs))
+                        .foregroundStyle(Self.durationColor(line.entry.durationMs)).frame(width: 64, alignment: .trailing)
+                        .help("Time the server took to answer")
+                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary).opacity(isSelected || hoveredID == line.id ? 1 : 0.45)
                 }
                 .font(.system(size: 12, design: .monospaced))
                 .padding(.vertical, 5).padding(.horizontal, 8)
                 .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? Theme.accent.opacity(0.35) : .clear))
+                    .fill(isSelected ? Theme.accent.opacity(0.35) : hoveredID == line.id ? Color.white.opacity(0.08) : .clear))
                 .contentShape(Rectangle())
-                .onTapGesture { selectedID = isSelected ? nil : line.id }
+                .onHover { inside in
+                    if inside { hoveredID = line.id; NSCursor.pointingHand.push() }
+                    else { if hoveredID == line.id { hoveredID = nil }; NSCursor.pop() }
+                }
+                .help("Show request details")
+                .onTapGesture { selectedID = isSelected ? nil : line.id; hintSeen = true }
                 .accessibilityAddTraits(.isButton)
                 .accessibilityLabel("\(line.entry.method) \(line.entry.path), status \(line.entry.status)")
             }
         }
+    }
+
+    /// "< 1 ms", "42 ms", "1.24 s"; a dash when the time is unknown.
+    static func durationText(_ ms: Int?) -> String {
+        guard let ms else { return "—" }
+        if ms < 1 { return "< 1 ms" }
+        if ms < 1000 { return "\(ms) ms" }
+        return String(format: "%.2f s", Double(ms) / 1000)
+    }
+
+    /// Quiet when fast, amber from 300 ms, red from 1 s.
+    static func durationColor(_ ms: Int?) -> Color {
+        guard let ms else { return .secondary }
+        if ms >= 1000 { return Theme.failed }
+        if ms >= 300 { return Theme.warning }
+        return .secondary
     }
 
     private func color(for status: Int) -> Color {
