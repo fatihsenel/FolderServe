@@ -47,8 +47,10 @@ struct RoundActionButton: View {
         )
         .overlay(Circle().strokeBorder(.white.opacity(hovering ? 0.6 : 0.35), lineWidth: 1))
         .brightness(hovering && !isBusy ? 0.1 : 0)
-        .shadow(color: glow.opacity(hovering && !isBusy ? 0.95 : 0.45), radius: hovering && !isBusy ? 28 : 14, y: 6)
+        .shadow(color: glow.opacity(isBusy ? 0 : (hovering ? 0.95 : 0.45)), radius: hovering && !isBusy ? 28 : 14, y: 6)
         .animation(.easeOut(duration: 0.2), value: hovering)
+        .saturation(isBusy ? 0 : 1)
+        .opacity(isBusy ? 0.4 : 1)
     }
 }
 
