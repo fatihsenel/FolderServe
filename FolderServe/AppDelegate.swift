@@ -12,7 +12,16 @@ final class FolderServeAppDelegate: NSObject, NSApplicationDelegate {
     /// (the app can live in the menu bar only).
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !Self.isRunningTests else { return }
-        MainActor.assumeIsolated { Self.restoreServers(manager: AppServices.manager) }
+        MainActor.assumeIsolated {
+            Self.restoreServers(manager: AppServices.manager)
+            if SplashSettings.enabled && !Self.launchedAsLoginItem { SplashController.shared.show() }
+        }
+    }
+
+    /// Login-item launches should be quiet (menu bar only), so no splash.
+    private static var launchedAsLoginItem: Bool {
+        let event = NSAppleEventManager.shared().currentAppleEvent
+        return event?.paramDescriptor(forKeyword: AEKeyword(keyAEPropData))?.enumCodeValue == OSType(keyAELaunchedAsLogInItem)
     }
 
     @MainActor
