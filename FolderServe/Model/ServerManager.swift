@@ -7,6 +7,8 @@ import FolderServeCore
 final class ServerManager {
     private(set) var entries: [ServerEntry] = []
     private(set) var statuses: [UUID: ServerStatus] = [:]
+    /// Detected framework per folder; filled in when a server starts (needs folder access).
+    private(set) var projectKinds: [UUID: ProjectKind] = [:]
     var notice: String?
     private(set) var log: [LogLine] = []
     /// Global setting: serve dotfiles (e.g. .env) from every folder. Off by default.
@@ -74,6 +76,7 @@ final class ServerManager {
         teardown(id)
         entries.removeAll { $0.id == id }
         statuses[id] = nil
+        projectKinds[id] = nil
         persist()
     }
 
@@ -153,6 +156,7 @@ final class ServerManager {
             statuses[id] = .folderMissing
             return
         }
+        projectKinds[id] = ProjectDetector.detect(root: folder)
         if let wanted = entry.preferredPort {
             let server = StaticServer(root: folder, port: wanted, options: entry.options)
             do {
@@ -269,7 +273,8 @@ final class ServerManager {
 #if DEBUG
 extension ServerManager {
     /// Seeds state for SwiftUI previews and snapshot tests without starting real servers.
-    func loadPreview(entries: [ServerEntry], statuses: [UUID: ServerStatus], log: [LogLine] = []) {
+    func loadPreview(entries: [ServerEntry], statuses: [UUID: ServerStatus], log: [LogLine] = [], kinds: [UUID: ProjectKind] = [:]) {
+        self.projectKinds = kinds
         self.entries = entries
         self.statuses = statuses
         self.log = log

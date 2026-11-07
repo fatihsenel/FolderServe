@@ -15,7 +15,10 @@ struct ServerCardView: View {
                 HStack(spacing: 16) {
                     statusIcon
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(entry.displayName).font(.system(size: 19, weight: .semibold, design: .rounded))
+                        HStack(spacing: 8) {
+                            Text(entry.displayName).font(.system(size: 19, weight: .semibold, design: .rounded))
+                            if let kind = manager.projectKinds[entryID] { ProjectBadge(kind: kind) }
+                        }
                         Text(entry.folderPath).font(.caption).foregroundStyle(.secondary)
                             .lineLimit(1).truncationMode(.middle)
                         statusLine

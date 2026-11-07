@@ -76,6 +76,16 @@ final class ServerManagerTests: XCTestCase {
         XCTAssertEqual(body, "hello")
     }
 
+    func testDetectsFrameworkWhenServerStarts() async throws {
+        let f = try folder()
+        try "{\"dependencies\": {\"vue\": \"3\"}}".write(to: f.appendingPathComponent("package.json"), atomically: true, encoding: .utf8)
+        let id = manager.add(folder: f)
+        await expectEventually { runningPort(id) != nil }
+        XCTAssertEqual(manager.projectKinds[id], .vue)
+        manager.remove(id)
+        XCTAssertNil(manager.projectKinds[id])
+    }
+
     func testAddingSameFolderTwiceReturnsSameID() throws {
         let f = try folder()
         let a = manager.add(folder: f)

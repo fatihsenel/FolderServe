@@ -16,7 +16,7 @@ struct FolderServeApp: App {
         MenuBarExtra {
             MenuBarView().environment(manager)
         } label: {
-            Image(systemName: "globe.americas.fill")
+            Image("MenuBarGlyph")
         }
         .menuBarExtraStyle(.window)
     }
