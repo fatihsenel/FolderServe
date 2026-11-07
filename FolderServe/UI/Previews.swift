@@ -19,7 +19,7 @@ enum PreviewData {
         m.loadPreview(entries: [a, b, c, d, e], statuses: [
             a.id: .running(port: 8080), b.id: .running(port: 8081), c.id: .folderMissing,
             d.id: .error("Port 3000 is already in use"),
-            e.id: .finding(PortSearch(busy: [8080, 8081], landed: 8082, began: Date().addingTimeInterval(-0.5), duration: 0.9)),
+            e.id: .finding(PortSearch(busy: [8080, 8081], landed: 8082, began: Date().addingTimeInterval(-0.5), duration: 1.5)),
         ], log: [
             line(a.id, "GET", "/", 200, 4_210, 9), line(a.id, "GET", "/assets/app.css", 200, 18_400, 8),
             line(b.id, "GET", "/users/42", 200, 1_024, 5), line(b.id, "GET", "/favicon.ico", 404, 612, 4),

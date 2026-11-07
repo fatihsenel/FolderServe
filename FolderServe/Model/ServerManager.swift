@@ -29,7 +29,7 @@ final class ServerManager {
     private static let maxLogLines = 500
     private static let logger = Logger(subsystem: "com.fatihsenel.FolderServe", category: "servers")
 
-    init(store: ServerStoring, defaultStartPort: UInt16 = 8080, minSearchDuration: TimeInterval = 0.9,
+    init(store: ServerStoring, defaultStartPort: UInt16 = 8080, minSearchDuration: TimeInterval = 1.5,
          defaults: UserDefaults = .standard) {
         self.store = store
         self.minSearchDuration = minSearchDuration
