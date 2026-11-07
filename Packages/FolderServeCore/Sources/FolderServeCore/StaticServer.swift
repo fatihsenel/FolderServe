@@ -18,6 +18,8 @@ public final class StaticServer: @unchecked Sendable {
     private var connections: [ObjectIdentifier: NWConnection] = [:]
     /// Extra response headers (CORS) for the request currently being answered on a connection.
     private var connHeaders: [ObjectIdentifier: [String: String]] = [:]
+    /// Sec-Fetch-Dest of the request being answered, for the request log's category.
+    private var connDest: [ObjectIdentifier: String] = [:]
     private var _onRequest: (@Sendable (RequestLogEntry) -> Void)?
     private let hub = ReloadHub()
     /// Seconds to wait for a proxied API before answering 504 (tests lower this).
@@ -134,7 +136,7 @@ public final class StaticServer: @unchecked Sendable {
         connections[id] = conn
         conn.stateUpdateHandler = { [weak self] state in
             switch state {
-            case .cancelled, .failed: self?.queue.async { self?.connections[id] = nil; self?.connHeaders[id] = nil }
+            case .cancelled, .failed: self?.queue.async { self?.connections[id] = nil; self?.connHeaders[id] = nil; self?.connDest[id] = nil }
             default: break
             }
         }
@@ -162,6 +164,7 @@ public final class StaticServer: @unchecked Sendable {
     // MARK: - Responses
 
     private func respond(_ conn: NWConnection, _ req: HTTPRequest, buffered: Data = Data()) {
+        connDest[ObjectIdentifier(conn)] = req.headers["sec-fetch-dest"]
         guard HostPolicy.isAllowed(req.headers["host"]) else {
             sendPage(conn, status: 403, message: "Host not allowed", method: req.method, path: req.path, head: req.method == "HEAD")
             return
@@ -343,7 +346,8 @@ public final class StaticServer: @unchecked Sendable {
         var headers = extra
         headers["Content-Type"] = contentType
         headers["Content-Length"] = String(body.count)
-        lockedLog(RequestLogEntry(method: method, path: path, status: status, bytes: Int64(body.count)))
+        lockedLog(RequestLogEntry(method: method, path: path, status: status, bytes: Int64(body.count),
+                                  category: .classify(path: path, secFetchDest: connDest[ObjectIdentifier(conn)], proxied: false)))
         var out = Data(responseHead(conn, status: status, headers: headers).utf8)
         if !head { out.append(body) }
         sendFinal(conn, out)
@@ -355,7 +359,8 @@ public final class StaticServer: @unchecked Sendable {
     }
 
     private func log(_ req: HTTPRequest, status: Int, bytes: Int64) {
-        lockedLog(RequestLogEntry(method: req.method, path: req.path, status: status, bytes: bytes))
+        lockedLog(RequestLogEntry(method: req.method, path: req.path, status: status, bytes: bytes,
+                                  category: .classify(path: req.path, secFetchDest: req.headers["sec-fetch-dest"], proxied: false)))
     }
 
     private func lockedLog(_ entry: RequestLogEntry) {

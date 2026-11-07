@@ -134,7 +134,8 @@ final class ProxyForwarder: NSObject, URLSessionDataDelegate, @unchecked Sendabl
             for (k, v) in ex.extraHeaders { head += "\(k): \(v)\r\n" }
             head += "Cache-Control: no-store\r\nConnection: close\r\n\r\n"
             ex.log(RequestLogEntry(method: ex.req.method, path: ex.req.path, status: status, bytes: Int64(html.utf8.count),
-                                   note: "→ \(ex.rule.target) failed"))
+                                   note: "→ \(ex.rule.target) failed",
+                                   category: .classify(path: ex.req.path, secFetchDest: ex.req.headers["sec-fetch-dest"], proxied: true)))
             ex.conn.send(content: Data((head + (ex.isHead ? "" : html)).utf8), contentContext: .finalMessage, isComplete: true,
                          completion: .contentProcessed { _ in ex.conn.cancel() })
             return
@@ -146,7 +147,8 @@ final class ProxyForwarder: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         lock.lock(); let ex = exchanges.removeValue(forKey: task.taskIdentifier); lock.unlock()
         guard let ex else { return }
         ex.log(RequestLogEntry(method: ex.req.method, path: ex.req.path, status: ex.status, bytes: ex.bytes,
-                               note: "→ \(ex.rule.target)"))
+                               note: "→ \(ex.rule.target)",
+                               category: .classify(path: ex.req.path, secFetchDest: ex.req.headers["sec-fetch-dest"], proxied: true)))
         let tail: Data? = ex.bodyless ? nil : Data("0\r\n\r\n".utf8)
         ex.conn.send(content: tail, contentContext: .finalMessage, isComplete: true,
                      completion: .contentProcessed { _ in ex.conn.cancel() })
