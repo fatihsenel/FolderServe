@@ -34,10 +34,14 @@ struct ProxyEditorView: View {
                             .buttonStyle(.plain).foregroundStyle(.secondary).help("Remove this rule")
                     }
                     .textFieldStyle(.roundedBorder).font(.system(.callout, design: .monospaced))
-                    HStack {
+                    VStack(alignment: .leading, spacing: 2) {
                         Toggle("Remove prefix when forwarding", isOn: $rule.stripPrefix)
                             .toggleStyle(.checkbox).font(.caption)
-                        Spacer()
+                        Toggle("Point this address at FolderServe in served files", isOn: $rule.rewriteAddress)
+                            .toggleStyle(.checkbox).font(.caption)
+                            .help("Replaces the target address (e.g. https://localhost:5003) in config.json, JS and HTML files when they are served, so an app with a hard-coded API address calls the proxy and avoids CORS. Your files are not changed.")
+                    }
+                    HStack {
                         if let problem = rule.problem {
                             Label(problem, systemImage: "exclamationmark.triangle.fill")
                                 .font(.caption).foregroundStyle(Theme.warning)

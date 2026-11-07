@@ -78,6 +78,11 @@ Example: `/uiapi` → `https://localhost:5003` sends `/uiapi/Account/Login` to
 
 - Methods: GET, POST, PUT, PATCH, DELETE, HEAD (request bodies up to 32 MB). Responses are streamed.
 - Rules take precedence over files in the folder; invalid rules are ignored.
+- **Hard-coded API address:** if your app has the target address in its files (for example
+  `"baseUrl": "https://localhost:5003/uiapi/"` in `assets/config.json`), the browser would still call the API
+  directly and hit CORS. With "Point this address at FolderServe in served files" (on by default), the address is
+  replaced by this server's address in `.json`, `.js`, `.mjs` and `.html` files (up to 10 MB) as they are served.
+  Files on disk are not changed. Addresses that are assembled in code (`"https://" + host`) are not detected.
 - Self-signed certificates are accepted for `localhost` / `127.x` targets only (ASP.NET Core dev certificate).
 - `Origin` and `Referer` are rewritten to the target. Redirects are not followed; a `Location` pointing at the
   target is turned into a local path.

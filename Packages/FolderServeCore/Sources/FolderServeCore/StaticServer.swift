@@ -264,16 +264,29 @@ public final class StaticServer: @unchecked Sendable {
         ]
         var status = 200
         var range: ClosedRange<Int64> = 0...(max(size, 1) - 1)
+        var localOrigin = ""
         var length = size
         switch RangeHeader.parse(req.headers["range"], fileSize: size) {
         case .none:
             let ext = url.pathExtension.lowercased()
-            if liveReload, ext == "html" || ext == "htm", size <= Self.maxInjectableBytes,
+            let isHTML = ext == "html" || ext == "htm"
+            // Addresses of proxy targets that should be pointed at this server instead.
+            var origins: [String] = []
+            if let host = req.headers["host"], ProxyRule.rewritableExtensions.contains(ext), size <= Int64(ProxyRule.maxRewritableBytes) {
+                origins = currentOptions.proxyRules.filter { $0.problem == nil && $0.rewriteAddress }.compactMap(\.targetOrigin)
+                localOrigin = "http://" + host
+            }
+            if ((liveReload && isHTML) || !origins.isEmpty), size <= Self.maxInjectableBytes,
                let original = try? Data(contentsOf: url) {
-                sendBody(conn, status: 200, contentType: MIMEType.forExtension(ext),
-                         body: ReloadScript.inject(into: original), method: req.method, path: req.path,
-                         head: head, extra: ["Accept-Ranges": "bytes"])
-                return
+                let rewritten = ProxyRule.rewriteAddresses(in: original, origins: origins, with: localOrigin)
+                let injectable = liveReload && isHTML
+                if rewritten != nil || injectable {
+                    let base = rewritten ?? original
+                    sendBody(conn, status: 200, contentType: MIMEType.forExtension(ext),
+                             body: injectable ? ReloadScript.inject(into: base) : base, method: req.method, path: req.path,
+                             head: head, extra: ["Accept-Ranges": "bytes"])
+                    return
+                }
             }
         case .partial(let r):
             status = 206

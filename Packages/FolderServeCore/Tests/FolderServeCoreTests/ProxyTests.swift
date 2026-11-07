@@ -66,6 +66,146 @@ final class ProxyRuleUnitTests: XCTestCase {
     }
 }
 
+final class AddressRewriteUnitTests: XCTestCase {
+    private func rewrite(_ text: String, origins: [String] = ["https://localhost:5003"], to local: String = "http://127.0.0.1:8080") -> String? {
+        ProxyRule.rewriteAddresses(in: Data(text.utf8), origins: origins, with: local).map { String(decoding: $0, as: UTF8.self) }
+    }
+    func testReplacesWholeAddressKeepingThePath() {
+        XCTAssertEqual(rewrite(#"{"baseUrl":"https://localhost:5003/uiapi/","raw":"https://localhost:5003/"}"#),
+                       #"{"baseUrl":"http://127.0.0.1:8080/uiapi/","raw":"http://127.0.0.1:8080/"}"#)
+    }
+    func testIsCaseInsensitiveForSchemeAndHost() {
+        XCTAssertEqual(rewrite("HTTPS://LocalHost:5003/x"), "http://127.0.0.1:8080/x")
+    }
+    func testHandlesJSONEscapedSlashes() {
+        XCTAssertEqual(rewrite(#"{"u":"https:\/\/localhost:5003\/uiapi"}"#), #"{"u":"http:\/\/127.0.0.1:8080\/uiapi"}"#)
+    }
+    func testDoesNotTouchOtherPortsOrLongerHosts() {
+        XCTAssertNil(rewrite("https://localhost:50031/x"))
+        XCTAssertNil(rewrite("https://localhost:5003x/x"))
+        XCTAssertNil(rewrite("https://localhost.example.com:5003/x") )
+        XCTAssertNil(rewrite("https://other.example/x"))
+        XCTAssertNil(rewrite("http://localhost:5003/x"), "a different scheme is a different address")
+    }
+    func testReturnsNilWhenNothingToDoOrNotText() {
+        XCTAssertNil(rewrite("no address here"))
+        XCTAssertNil(ProxyRule.rewriteAddresses(in: Data([0xff, 0xfe, 0x00, 0x01]), origins: ["https://localhost:5003"], with: "http://x"))
+        XCTAssertNil(ProxyRule.rewriteAddresses(in: Data("https://localhost:5003".utf8), origins: [], with: "http://x"))
+    }
+    func testMultipleOrigins() {
+        XCTAssertEqual(rewrite("a https://localhost:5003/ b http://localhost:3000/", origins: ["https://localhost:5003", "http://localhost:3000"]),
+                       "a http://127.0.0.1:8080/ b http://127.0.0.1:8080/")
+    }
+    func testReplacementTextIsNotInterpretedAsATemplate() {
+        XCTAssertEqual(rewrite("https://localhost:5003/", to: "http://h$1:80"), "http://h$1:80/")
+    }
+    func testOldRulesWithoutTheFlagDefaultToRewriting() throws {
+        let r = try JSONDecoder().decode(ProxyRule.self, from: Data(#"{"prefix":"/a","target":"http://x:1"}"#.utf8))
+        XCTAssertTrue(r.rewriteAddress)
+    }
+}
+
+final class AddressRewriteIntegrationTests: XCTestCase {
+    var root: URL!
+    var server: StaticServer!
+    let fm = FileManager.default
+    let api = "https://localhost:5003"
+
+    override func setUpWithError() throws {
+        root = fm.temporaryDirectory.appendingPathComponent("rw-\(UUID().uuidString)")
+        try fm.createDirectory(at: root.appendingPathComponent("assets"), withIntermediateDirectories: true)
+        try #"{ "baseUrl" : "https://localhost:5003/uiapi/" }"#.write(to: root.appendingPathComponent("assets/config.json"), atomically: true, encoding: .utf8)
+        try #"const base="https://localhost:5003/uiapi/";"#.write(to: root.appendingPathComponent("main.js"), atomically: true, encoding: .utf8)
+        try "const x = 1;".write(to: root.appendingPathComponent("plain.js"), atomically: true, encoding: .utf8)
+        try "<html><body><script>var u='https://localhost:5003/uiapi/'</script></body></html>".write(to: root.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+        try "https://localhost:5003 in a text file".write(to: root.appendingPathComponent("notes.txt"), atomically: true, encoding: .utf8)
+        try "https://localhost:5003 in a css file".write(to: root.appendingPathComponent("a.css"), atomically: true, encoding: .utf8)
+    }
+    override func tearDownWithError() throws { server?.stop(); try? fm.removeItem(at: root) }
+
+    private func start(rewrite: Bool = true, liveReload: Bool = true, rules: [ProxyRule]? = nil) async throws -> UInt16 {
+        let rs = rules ?? [ProxyRule(prefix: "/uiapi", target: api, rewriteAddress: rewrite)]
+        server = StaticServer(root: root, port: 0, options: ServeOptions(liveReload: liveReload, proxyRules: rs))
+        return try await server.start()
+    }
+    private func get(_ port: UInt16, _ path: String, host: String? = nil, headers: String = "") throws -> RawResponse {
+        try XCTUnwrap(RawHTTP.request(port: port, "GET \(path) HTTP/1.1\r\nHost: \(host ?? "127.0.0.1:\(port)")\r\n\(headers)\r\n"))
+    }
+
+    func testConfigJSONPointsAtThisServer() async throws {
+        let port = try await start()
+        let r = try get(port, "/assets/config.json")
+        XCTAssertEqual(r.status, 200)
+        XCTAssertEqual(r.text, #"{ "baseUrl" : "http://127.0.0.1:\#(port)/uiapi/" }"#)
+        XCTAssertEqual(r.headers["content-length"], String(r.body.count))
+        XCTAssertEqual(r.headers["content-type"], "application/json; charset=utf-8")
+    }
+
+    func testUsesTheHostHeaderTheBrowserUsed() async throws {
+        let port = try await start()
+        XCTAssertTrue(try get(port, "/main.js", host: "localhost:\(port)").text.contains("http://localhost:\(port)/uiapi/"))
+    }
+
+    func testJSAndHTMLAreRewritten_HTMLStillGetsLiveReload() async throws {
+        let port = try await start()
+        XCTAssertTrue(try get(port, "/main.js").text.contains("http://127.0.0.1:\(port)/uiapi/"))
+        let html = try get(port, "/index.html").text
+        XCTAssertTrue(html.contains("http://127.0.0.1:\(port)/uiapi/"))
+        XCTAssertTrue(html.contains("__reload"), "live reload script is still injected")
+    }
+
+    func testSPAFallbackPageIsRewrittenToo() async throws {
+        let port = try await start()
+        let r = try get(port, "/some/deep/link", headers: "Accept: text/html\r\n")
+        XCTAssertTrue(r.text.contains("http://127.0.0.1:\(port)/uiapi/"))
+    }
+
+    func testOtherFileTypesAndFilesWithoutTheAddressAreUntouched() async throws {
+        let port = try await start()
+        XCTAssertEqual(try get(port, "/notes.txt").text, "https://localhost:5003 in a text file")
+        XCTAssertEqual(try get(port, "/a.css").text, "https://localhost:5003 in a css file")
+        XCTAssertEqual(try get(port, "/plain.js").text, "const x = 1;")
+    }
+
+    func testSwitchOffLeavesFilesAlone() async throws {
+        let port = try await start(rewrite: false)
+        XCTAssertEqual(try get(port, "/assets/config.json").text, #"{ "baseUrl" : "https://localhost:5003/uiapi/" }"#)
+    }
+
+    func testNoRulesMeansNoRewriting() async throws {
+        let port = try await start(rules: [])
+        XCTAssertTrue(try get(port, "/main.js").text.contains("https://localhost:5003"))
+    }
+
+    func testInvalidRuleIsIgnored() async throws {
+        let port = try await start(rules: [ProxyRule(prefix: "/", target: api)])
+        XCTAssertTrue(try get(port, "/main.js").text.contains("https://localhost:5003"))
+    }
+
+    func testFilesOverTheSizeLimitAreServedUnchanged() async throws {
+        let big = String(repeating: "x", count: ProxyRule.maxRewritableBytes + 10) + " https://localhost:5003"
+        try big.write(to: root.appendingPathComponent("big.js"), atomically: true, encoding: .utf8)
+        let port = try await start()
+        let r = try get(port, "/big.js")
+        XCTAssertEqual(r.status, 200)
+        XCTAssertTrue(r.text.hasSuffix(" https://localhost:5003"))
+    }
+
+    func testRangeRequestsAreServedFromTheOriginalFile() async throws {
+        let port = try await start()
+        let r = try get(port, "/main.js", headers: "Range: bytes=0-4\r\n")
+        XCTAssertEqual(r.status, 206)
+        XCTAssertEqual(r.text, "const")
+    }
+
+    func testRewritingIsOnlyAnswerToTheRequestingHostNotCached() async throws {
+        let port = try await start()
+        let a = try get(port, "/main.js", host: "127.0.0.1:\(port)").text
+        let b = try get(port, "/main.js", host: "localhost:\(port)").text
+        XCTAssertNotEqual(a, b)
+    }
+}
+
 final class ProxyIntegrationTests: XCTestCase {
     var root: URL!
     var server: StaticServer!
