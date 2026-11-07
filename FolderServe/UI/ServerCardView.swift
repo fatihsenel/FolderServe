@@ -44,6 +44,7 @@ struct ServerCardView: View {
                 .buttonStyle(.bordered)
             }
             .card()
+            .justAddedGlow(manager.highlightedIDs.contains(entryID))
         }
     }
 

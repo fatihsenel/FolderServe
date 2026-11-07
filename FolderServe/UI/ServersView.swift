@@ -3,7 +3,12 @@ import SwiftUI
 struct ServersView: View {
     @Environment(ServerManager.self) private var manager
     @Environment(\.isSnapshotRendering) private var isSnapshot
-    @State private var isTargeted = false
+    @State private var isTargeted: Bool
+    @State private var bursts: [DropBurst] = []
+
+    private struct DropBurst: Identifiable { let id = UUID(); let point: CGPoint }
+
+    init(initiallyTargeted: Bool = false) { _isTargeted = State(initialValue: initiallyTargeted) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -19,28 +24,47 @@ struct ServersView: View {
                 if isSnapshot {
                     cardList  // ImageRenderer cannot draw ScrollView content
                 } else {
-                    ScrollView { cardList }
+                    ScrollViewReader { proxy in
+                        ScrollView { cardList }
+                            .onChange(of: manager.lastHighlightedID) { _, id in
+                                guard let id else { return }
+                                withAnimation(.smooth(duration: 0.5)) { proxy.scrollTo(id, anchor: .center) }
+                            }
+                    }
                 }
             }
             Spacer(minLength: 0)
         }
         .padding(28)
         .overlay {
-            if isTargeted && !manager.entries.isEmpty {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .strokeBorder(Theme.accent, lineWidth: 3).padding(10).allowsHitTesting(false)
+            // The fade is scoped to the overlay, so showing it does not animate the card list underneath.
+            ZStack {
+                if isTargeted { DropOverlayView().transition(.opacity) }
             }
+            .animation(.easeOut(duration: 0.18), value: isTargeted)
         }
-        .modifier(FolderDropModifier(enabled: !isSnapshot, isTargeted: $isTargeted))
+        .overlay { ForEach(bursts) { DropBurstView(point: $0.point) } }
+        .modifier(FolderDropModifier(enabled: !isSnapshot, isTargeted: $isTargeted) { location in
+            let burst = DropBurst(point: location)
+            bursts.append(burst)
+            DropFeedback.tap()
+            Task { try? await Task.sleep(for: .seconds(1.1)); bursts.removeAll { $0.id == burst.id } }
+        })
     }
 
     private var cardList: some View {
         VStack(spacing: 16) {
-            ForEach(manager.entries) { ServerCardView(entryID: $0.id) }
+            ForEach(manager.entries) { entry in
+                ServerCardView(entryID: entry.id)
+                    .id(entry.id)
+                    .transition(.asymmetric(insertion: .scale(scale: 0.92).combined(with: .opacity).combined(with: .offset(y: -18)),
+                                            removal: .opacity.combined(with: .scale(scale: 0.96))))
+            }
             Text("Drop more folders anywhere in this window")
                 .font(.footnote).foregroundStyle(.secondary).padding(.top, 4)
         }
         .padding(.vertical, 4)
+        .animation(.spring(response: 0.5, dampingFraction: 0.78), value: manager.entries.map(\.id))
     }
 
     private func addFolders() {
@@ -52,11 +76,13 @@ private struct FolderDropModifier: ViewModifier {
     @Environment(ServerManager.self) private var manager
     let enabled: Bool
     @Binding var isTargeted: Bool
+    let onDrop: (CGPoint) -> Void
 
     func body(content: Content) -> some View {
         if enabled {
-            content.dropDestination(for: URL.self) { urls, _ in
+            content.dropDestination(for: URL.self) { urls, location in
                 for url in urls { _ = manager.addDropped(url: url) }
+                if !urls.isEmpty { onDrop(location) }
                 return !urls.isEmpty
             } isTargeted: { isTargeted = $0 }
         } else {

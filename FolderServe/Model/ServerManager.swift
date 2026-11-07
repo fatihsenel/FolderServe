@@ -9,6 +9,10 @@ final class ServerManager {
     private(set) var statuses: [UUID: ServerStatus] = [:]
     /// Detected framework per folder; filled in when a server starts (needs folder access).
     private(set) var projectKinds: [UUID: ProjectKind] = [:]
+    /// Folders just added or dropped again; the UI glows their cards for a moment.
+    private(set) var highlightedIDs: Set<UUID> = []
+    /// The most recent of them (the list scrolls to it).
+    private(set) var lastHighlightedID: UUID?
     private(set) var log: [LogLine] = []
     /// Global setting: serve dotfiles (e.g. .env) from every folder. Off by default.
     private(set) var serveDotfiles: Bool
@@ -21,6 +25,8 @@ final class ServerManager {
     @ObservationIgnored private let defaultStartPort: UInt16
     @ObservationIgnored private let minSearchDuration: TimeInterval
     @ObservationIgnored private let bodyBudget: Int
+    @ObservationIgnored private let highlightDuration: TimeInterval
+    @ObservationIgnored private var highlightTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private let defaults: UserDefaults
     private static let dotfilesKey = "serveDotfiles"
     private static let startAtLaunchKey = "startServersAtLaunch"
@@ -31,8 +37,10 @@ final class ServerManager {
     private static let logger = Logger(subsystem: "com.fatihsenel.FolderServe", category: "servers")
 
     init(store: ServerStoring, defaultStartPort: UInt16 = 8080, minSearchDuration: TimeInterval = 1.5,
-         bodyBudget: Int = 20 * 1024 * 1024, defaults: UserDefaults = .standard) {
+         bodyBudget: Int = 20 * 1024 * 1024, highlightDuration: TimeInterval = 2.2,
+         defaults: UserDefaults = .standard) {
         self.store = store
+        self.highlightDuration = highlightDuration
         self.bodyBudget = bodyBudget
         self.minSearchDuration = minSearchDuration
         self.defaultStartPort = defaultStartPort
@@ -51,9 +59,23 @@ final class ServerManager {
     // MARK: - Adding / removing
 
     @discardableResult
+    /// Makes the folder's card glow for a moment (new folder, or one that was dropped again).
+    func highlight(_ id: UUID) {
+        highlightedIDs.insert(id)
+        lastHighlightedID = id
+        highlightTasks[id]?.cancel()
+        highlightTasks[id] = Task { [weak self, highlightDuration] in
+            try? await Task.sleep(for: .seconds(highlightDuration))
+            guard !Task.isCancelled else { return }
+            self?.highlightedIDs.remove(id)
+            self?.highlightTasks[id] = nil
+        }
+    }
+
     func add(folder: URL) -> UUID {
         let path = folder.standardizedFileURL.path
         if let existing = entries.first(where: { $0.folderPath == path }) {
+            highlight(existing.id)
             Task { await startNow(existing.id) }
             return existing.id
         }
@@ -62,6 +84,7 @@ final class ServerManager {
         entries.append(entry)
         statuses[entry.id] = .stopped
         persist()
+        highlight(entry.id)
         Task { await startNow(entry.id) }
         return entry.id
     }
