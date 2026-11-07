@@ -14,7 +14,8 @@ static sites and single page apps, with live reload.
 - Range requests (video/audio seeking), directory listings, correct MIME types, files streamed in chunks.
 - Servers listen on `127.0.0.1` only. Path traversal (`..`, encoded, symlinks leaving the folder) → 403.
   Dotfiles (`.env`, `.git`) are not served unless you enable it in Settings.
-- Activity log of requests, per-folder toggles, start-at-launch and launch-at-login.
+- Activity log of requests with timings and a dev-tools style detail panel, per-folder toggles, start-at-launch and launch-at-login.
+- Optional API proxy, CORS, HTTPS and sharing on your network (each described below).
 
 ## Build
 
@@ -38,6 +39,13 @@ xcodebuild test -scheme FolderServe -destination 'platform=macOS'        # app: 
 - `Packages/FolderServeCore` — HTTP/1.1 server on `NWListener`, path resolver, live reload (FSEvents + SSE), port finder. No UI.
 - `FolderServe/` — SwiftUI app: `Model/` (ServerManager, persistence), `UI/` (window, menu bar, theme).
 - `docs/superpowers/` — design spec and implementation plan.
+- `CLAUDE.md` — working notes for contributors and AI assistants (build, tests, conventions, git workflow).
+
+## Previews
+
+Every view has an Xcode preview in `FolderServe/UI/Previews.swift` (debug builds only), built on shared sample data
+(`PreviewData`). Open the file and press ⌥⌘P to see them in the canvas. Views that read the server manager must be given
+one in their preview, as the existing ones are.
 
 ## Known limits
 
@@ -46,7 +54,8 @@ xcodebuild test -scheme FolderServe -destination 'platform=macOS'        # app: 
 - Dropping onto the menu bar *icon* itself is not supported (SwiftUI `MenuBarExtra`); drop on the popover instead.
 - Requests whose `Host` header is not a loopback name (`localhost`, `*.localhost`, `127.x.x.x`, `[::1]`) get 403, to block DNS-rebinding
   attacks from web pages. This also means tunnels that forward a public hostname (ngrok etc.) are rejected.
-- HTTP only (no HTTPS), no LAN access, no CSS hot-swap — see the spec's out-of-scope list.
+- No CSS hot-swap (a CSS change reloads the page) — see the spec's out-of-scope list. HTTPS and LAN sharing exist but are
+  off by default (see below).
 
 ## Project badges
 
@@ -114,7 +123,10 @@ Example: `/uiapi` → `https://localhost:5003` sends `/uiapi/Account/Login` to
 ## Activity
 
 The Activity tab lists requests with a dev-tools style category: Fetch/XHR, Doc, JS, CSS, Img, Media, Font and
-Other. Click a chip to filter (the chips show counts for the chosen server). The category comes from the
+Other. Click a chip to filter (the chips show counts for the chosen server). Each row shows the method, status, path, size and
+**how long the server took** (grey when quick, amber from 300 ms, red from 1 s). Rows light up on hover and carry an arrow;
+a one-time tip above the list says a request can be opened and goes away once you open one. When the list is narrow (for
+example beside the detail panel) rows drop the clock time and type badge, then the size, so nothing wraps. The category comes from the
 browser's `Sec-Fetch-Dest` header when it sends one, otherwise from the file extension; proxied API calls
 are Fetch/XHR. Browsers also send `Sec-Fetch-Dest: empty` for preloads (e.g. `modulepreload` chunks), so plain
 `.js`, `.css`, image, font and media files are always grouped by their type; `.json` and extensionless paths
@@ -125,6 +137,11 @@ requested that way stay Fetch/XHR. **Clear** removes the activity of the chosen 
 Click a request in Activity to open its details (Esc or × closes them): **Headers** (URL, status, time, size, request and
 response headers), **Payload** (request body of proxied calls, JSON pretty-printed, forms decoded), **Preview**
 (images rendered with their size, JSON and text, a sample line for fonts) and **Response** (raw body with Copy).
+
+- **JSON is a tree.** In Preview and Payload a JSON object or array is coloured (keys, strings, numbers, `true`/`false`/`null`)
+  and every object and array has an arrow to fold it; a folded node shows its size (`"roles": [ … 2 items ]`). **Collapse all**,
+  **Expand all** and **Copy** (the whole body, pretty-printed) sit above it, and very long arrays start folded. Invalid or
+  cut-off JSON, and bodies over 256 KB, are shown as plain text.
 
 - Files served from your folder are read from disk when you open them, so nothing extra is kept in memory. If the
   proxy address was replaced in a file when it was served, the panel says so and shows the file on disk.
