@@ -13,7 +13,7 @@ struct SettingsView: View {
             Text("Settings").font(.system(size: 30, weight: .bold, design: .rounded))
             VStack(alignment: .leading, spacing: 18) {
                 SettingRow(title: "Start servers at launch",
-                           detail: "Servers that were running when you quit start again automatically.",
+                           detail: "Servers that were running when you quit start again automatically. Folders marked “Always start at launch” start regardless.",
                            isOn: $manager.startServersAtLaunch)
                 Divider().opacity(0.4)
                 SettingRow(title: "Serve dotfiles",
@@ -31,7 +31,7 @@ struct SettingsView: View {
                     .controlSize(.small)
             }
             .card()
-            Text("Servers listen on 127.0.0.1 only, so other devices on your network cannot reach them.")
+            Text("Servers listen on 127.0.0.1 only, so other devices cannot reach them — unless you turn on Share for a folder.")
                 .font(.footnote).foregroundStyle(.secondary)
             Spacer(minLength: 0)
         }

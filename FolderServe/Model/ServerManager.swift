@@ -157,8 +157,15 @@ final class ServerManager {
         }
     }
 
-    func startAutoStartEntries() {
-        for e in entries where e.autoStart { Task { await startNow(e.id) } }
+    /// `pinnedOnly`: just the folders marked "always start" (used when restoring the previous session is switched off).
+    func startAutoStartEntries(pinnedOnly: Bool = false) {
+        for e in entries where e.startsAlways || (!pinnedOnly && e.autoStart) { Task { await startNow(e.id) } }
+    }
+
+    func setAlwaysStart(_ id: UUID, _ value: Bool) {
+        guard let i = entries.firstIndex(where: { $0.id == id }), entries[i].startsAlways != value else { return }
+        entries[i].pinnedStart = value ? true : nil
+        persist()
     }
 
     func setOptions(_ id: UUID, _ options: ServeOptions) {
