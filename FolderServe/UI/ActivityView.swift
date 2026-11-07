@@ -13,14 +13,17 @@ struct ActivityView: View {
     /// The hint that rows can be opened is shown until the user opens one (or dismisses it).
     @AppStorage("activityDetailHintSeen") private var hintSeen = false
     @State private var hoveredID: UUID?
+    /// List the slowest requests first instead of the newest.
+    @State private var slowestFirst: Bool
 
     /// Text typed in the search field; every word must match a request for it to be listed.
     @State private var query: String
 
-    init(initialSelection: UUID? = nil, initiallyHovered: UUID? = nil, initialQuery: String = "") {
+    init(initialSelection: UUID? = nil, initiallyHovered: UUID? = nil, initialQuery: String = "", initiallySlowestFirst: Bool = false) {
         _selectedID = State(initialValue: initialSelection)
         _hoveredID = State(initialValue: initiallyHovered)
         _query = State(initialValue: initialQuery)
+        _slowestFirst = State(initialValue: initiallySlowestFirst)
     }
 
     /// Everything logged for the chosen server.
@@ -32,9 +35,11 @@ struct ActivityView: View {
     private var searchedLines: [LogLine] { serverLines.filter { Self.matches($0.entry, query: query) } }
     /// What is listed: the chosen server, the search and the category.
     private var lines: [LogLine] {
-        guard let category else { return searchedLines }
-        return searchedLines.filter { $0.entry.category == category }
+        let listed = category.map { c in searchedLines.filter { $0.entry.category == c } } ?? searchedLines
+        return Self.ordered(listed, slowestFirst: slowestFirst)
     }
+    /// The request that took longest in this list, when it is slow enough to deserve a marker.
+    private var slowestID: UUID? { Self.slowestID(in: lines) }
     private var isSearching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
     private var selectedLine: LogLine? {
         guard let selectedID else { return nil }
@@ -51,6 +56,7 @@ struct ActivityView: View {
                 Text("Activity").font(.system(size: 30, weight: .bold, design: .rounded))
                 Spacer()
                 searchField
+                sortMenu
                 Picker("Server", selection: $filter) {
                     Text("All servers").tag(UUID?.none)
                     ForEach(manager.entries) { Text($0.displayName).tag(UUID?.some($0.id)) }
@@ -127,6 +133,39 @@ struct ActivityView: View {
 
     private func detail(_ line: LogLine) -> some View {
         RequestDetailView(line: line) { selectedID = nil }
+    }
+
+    /// Newest first (the default) or slowest first.
+    private var sortMenu: some View {
+        Menu {
+            Picker("Sort by", selection: $slowestFirst) {
+                Label("Newest first", systemImage: "clock").tag(false)
+                Label("Slowest first", systemImage: "tortoise").tag(true)
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Label(slowestFirst ? "Slowest" : "Newest", systemImage: "arrow.up.arrow.down")
+        }
+        .menuStyle(.borderlessButton).fixedSize()
+        .help("Choose the order of the list")
+    }
+
+    /// Slowest first puts requests with a known time in front, longest first; the rest keep their order. Otherwise the order is unchanged.
+    static func ordered(_ lines: [LogLine], slowestFirst: Bool) -> [LogLine] {
+        guard slowestFirst else { return lines }
+        return lines.enumerated().sorted { a, b in
+            let (x, y) = (a.element.entry.durationMs ?? -1, b.element.entry.durationMs ?? -1)
+            return x != y ? x > y : a.offset < b.offset
+        }.map(\.element)
+    }
+
+    /// The longest request in `lines`, but only from `slowThreshold` up, and only when there is something to compare it with.
+    static let slowThresholdMs = 300
+    static func slowestID(in lines: [LogLine]) -> UUID? {
+        guard lines.count > 1,
+              let slowest = lines.max(by: { ($0.entry.durationMs ?? -1) < ($1.entry.durationMs ?? -1) }),
+              let ms = slowest.entry.durationMs, ms >= slowThresholdMs else { return nil }
+        return slowest.id
     }
 
     /// Filters the list by method, path, status, note or type. Esc or × clears it.
@@ -234,6 +273,12 @@ struct ActivityView: View {
                         Text(note).foregroundStyle(Theme.accent).lineLimit(1).truncationMode(.middle)
                     }
                     Spacer(minLength: 8)
+                    if line.id == slowestID {
+                        Image(systemName: "tortoise.fill").font(.system(size: 11))
+                            .foregroundStyle(Self.durationColor(line.entry.durationMs))
+                            .help("The slowest request in this list")
+                            .accessibilityLabel("Slowest request")
+                    }
                     if detail != .compact {
                         Text(ByteCountFormatter.string(fromByteCount: line.entry.bytes, countStyle: .file))
                             .lineLimit(1).fixedSize().foregroundStyle(.secondary)

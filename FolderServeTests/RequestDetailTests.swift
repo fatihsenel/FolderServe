@@ -150,6 +150,27 @@ final class RequestDetailTests: XCTestCase {
         XCTAssertTrue(RequestDetailView.curlCommand(for: curlEntry("HEAD", "http://127.0.0.1:8080/")).contains("--head"))
     }
 
+    private func timed(_ ms: Int?, _ path: String) -> LogLine {
+        var e = RequestLogEntry(method: "GET", path: path, status: 200, bytes: 1)
+        e.durationMs = ms
+        return LogLine(serverID: UUID(), entry: e)
+    }
+
+    func testSlowestFirstOrdersByTimeAndKeepsUntimedLast() {
+        let lines = [timed(5, "/a"), timed(nil, "/b"), timed(900, "/c"), timed(5, "/d"), timed(300, "/e")]
+        XCTAssertEqual(ActivityView.ordered(lines, slowestFirst: false).map(\.entry.path), ["/a", "/b", "/c", "/d", "/e"])
+        XCTAssertEqual(ActivityView.ordered(lines, slowestFirst: true).map(\.entry.path), ["/c", "/e", "/a", "/d", "/b"],
+                       "longest first; equal times keep their order; unknown times go last")
+    }
+
+    func testOnlyASlowEnoughRequestGetsTheSlowestMarker() {
+        let slow = timed(1240, "/slow")
+        XCTAssertEqual(ActivityView.slowestID(in: [timed(3, "/a"), slow, timed(85, "/b")]), slow.id)
+        XCTAssertNil(ActivityView.slowestID(in: [timed(3, "/a"), timed(299, "/b")]), "299 ms is below the threshold")
+        XCTAssertNil(ActivityView.slowestID(in: [slow]), "nothing to compare it with")
+        XCTAssertNil(ActivityView.slowestID(in: [timed(nil, "/a"), timed(nil, "/b")]))
+    }
+
     func testBrokenJSONIsShownAsIs() {
         XCTAssertEqual(RequestDetailView.displayText(Data("{oops".utf8), contentType: "application/json"), "{oops")
     }

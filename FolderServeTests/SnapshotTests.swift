@@ -118,6 +118,19 @@ final class SnapshotTests: XCTestCase {
         try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-activity-search.png"))
     }
 
+    /// Activity sorted slowest first, with the marker on the slowest request.
+    func testRenderActivitySlowestFirstSnapshot() throws {
+        let view = ActivityView(initiallySlowestFirst: true)
+            .environment(PreviewData.manager(populated: true))
+            .environment(\.colorScheme, .dark)
+            .environment(\.isSnapshotRendering, true)
+            .frame(width: 900, height: 560).background(Theme.background(.dark))
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-activity-slowest.png"))
+    }
+
     func testRenderMainWindowSnapshots() throws {
         try render("empty-dark", populated: false, scheme: .dark)
         try render("populated-dark", populated: true, scheme: .dark)
