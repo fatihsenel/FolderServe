@@ -193,7 +193,7 @@ struct RequestDetailView: View {
                 fontPreview(font)
             } else if Self.isText(data, contentType: type) {
                 if !content.truncated, let root = Self.jsonRoot(data) {
-                    jsonBody(root, text: Self.displayText(data, contentType: type), copyable: false)
+                    jsonBody(root, text: Self.displayText(data, contentType: type), copyable: true)
                 } else {
                     bodyText(Self.displayText(data, contentType: type), truncated: content.truncated, copyable: false, total: content.totalSize)
                 }
