@@ -87,6 +87,10 @@ struct ServerCardView: View {
             .help("SPA mode, Cache, HTTPS, CORS")
             .popover(isPresented: $showingOptions, arrowEdge: .bottom) { OptionsPopoverView(entryID: entryID) }
             Button { open() } label: { Label("Open", systemImage: "safari") }.disabled(!isRunning)
+            if status != .folderMissing {
+                Button { FinderReveal.reveal(path: entry.folderPath) } label: { Label("Finder", systemImage: "folder") }
+                    .help("Show this folder in Finder")
+            }
             Button(role: .destructive) { manager.requestRemoval(entryID) } label: { Image(systemName: "trash") }
                 .help("Remove this folder")
         }
@@ -144,6 +148,7 @@ struct ServerCardView: View {
             .onHover { hoveringTitle = $0 }
             .onTapGesture(count: 2) { beginRename(entry) }
             .contextMenu {
+                if status != .folderMissing { Button("Show in Finder") { FinderReveal.reveal(path: entry.folderPath) } }
                 Button("Rename…") { beginRename(entry) }
                 Button { manager.setAlwaysStart(entryID, !entry.startsAlways) } label: {
                     if entry.startsAlways { Label("Always start at launch", systemImage: "checkmark") } else { Text("Always start at launch") }

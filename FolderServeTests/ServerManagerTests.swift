@@ -493,3 +493,10 @@ final class OptionsSummaryTests: XCTestCase {
         XCTAssertEqual(ServeOptions(spaMode: false, liveReload: true, shareOnNetwork: true).enabledExtrasCount, 0)
     }
 }
+
+@MainActor
+final class FinderRevealTests: XCTestCase {
+    func testMissingFolderIsNotRevealed() {
+        XCTAssertFalse(FinderReveal.reveal(path: "/tmp/definitely-not-here-\(UUID().uuidString)"))
+    }
+}
