@@ -66,6 +66,14 @@ final class ServerManager {
         return nil
     }
 
+    /// Addresses other devices can use while the folder is shared on the network (empty otherwise).
+    func lanURLs(for id: UUID) -> [URL] {
+        guard case .running(let port) = statuses[id], let options = entries.first(where: { $0.id == id })?.options,
+              options.shareOnNetwork else { return [] }
+        let scheme = options.https ? "https" : "http"
+        return LANAddress.ipv4Addresses().compactMap { URL(string: "\(scheme)://\($0):\(port)/") }
+    }
+
     // MARK: - Adding / removing
 
     @discardableResult
@@ -165,17 +173,25 @@ final class ServerManager {
         }
     }
 
-    func startAutoStartEntries() {
-        for e in entries where e.autoStart { Task { await startNow(e.id) } }
+    /// `pinnedOnly`: just the folders marked "always start" (used when restoring the previous session is switched off).
+    func startAutoStartEntries(pinnedOnly: Bool = false) {
+        for e in entries where e.startsAlways || (!pinnedOnly && e.autoStart) { Task { await startNow(e.id) } }
+    }
+
+    func setAlwaysStart(_ id: UUID, _ value: Bool) {
+        guard let i = entries.firstIndex(where: { $0.id == id }), entries[i].startsAlways != value else { return }
+        entries[i].pinnedStart = value ? true : nil
+        persist()
     }
 
     func setOptions(_ id: UUID, _ options: ServeOptions) {
         guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
-        let schemeChanged = entries[i].options.https != options.https
+        let listenerChanged = entries[i].options.https != options.https
+            || entries[i].options.shareOnNetwork != options.shareOnNetwork
         entries[i].options = options
         servers[id]?.updateOptions(options)
         persist()
-        if schemeChanged, servers[id] != nil {   // http ⇄ https needs a new listener
+        if listenerChanged, servers[id] != nil {   // http ⇄ https, loopback ⇄ all interfaces: needs a new listener
             teardown(id)
             Task { await startNow(id) }
         }

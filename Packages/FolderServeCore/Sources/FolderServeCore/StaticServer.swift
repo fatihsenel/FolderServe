@@ -65,7 +65,7 @@ public final class StaticServer: @unchecked Sendable {
             params = .tcp
         }
         let port: NWEndpoint.Port = requestedPort == 0 ? .any : NWEndpoint.Port(rawValue: requestedPort)!
-        params.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: port)
+        params.requiredLocalEndpoint = .hostPort(host: currentOptions.shareOnNetwork ? .ipv4(.any) : .ipv4(.loopback), port: port)
         let listener: NWListener
         do { listener = try NWListener(using: params) } catch {
             throw StaticServerError.listenerFailed("\(error)")
@@ -183,7 +183,7 @@ public final class StaticServer: @unchecked Sendable {
         var req = parsed
         req.secure = identity != nil
         connRequest[ObjectIdentifier(conn)] = (req, Date())
-        guard HostPolicy.isAllowed(req.headers["host"]) else {
+        guard HostPolicy.isAllowed(req.headers["host"], allowLAN: currentOptions.shareOnNetwork) else {
             sendPage(conn, status: 403, message: "Host not allowed", method: req.method, path: req.path, head: req.method == "HEAD")
             return
         }

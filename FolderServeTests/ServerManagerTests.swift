@@ -452,3 +452,12 @@ final class ServerManagerTests: XCTestCase {
         XCTAssertEqual(manager.logLines(for: nil).map(\.entry.path), ["/two.txt", "/one.txt"])
     }
 }
+
+@MainActor
+final class SharingTests: XCTestCase {
+    func testQRCodeImageIsGenerated() {
+        let image = QRCode.image(for: "http://192.168.1.20:8080/")
+        XCTAssertNotNil(image)
+        XCTAssertGreaterThan(image?.size.width ?? 0, 100)
+    }
+}
