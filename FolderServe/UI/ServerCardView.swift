@@ -30,8 +30,8 @@ struct ServerCardView: View {
                 }
                 Divider().opacity(0.4)
                 HStack(spacing: 18) {
-                    Toggle("Live reload", isOn: binding(\.liveReload, entry)).toggleStyle(.switch)
-                    Toggle("SPA mode", isOn: binding(\.spaMode, entry)).toggleStyle(.switch)
+                    Toggle("Live reload", isOn: binding(\.liveReload, entry)).toggleStyle(GlowToggleStyle())
+                    Toggle("SPA mode", isOn: binding(\.spaMode, entry)).toggleStyle(GlowToggleStyle())
                         .help("Serve index.html for unknown paths so client-side routers work")
                     Spacer()
                     Button { open() } label: { Label("Open", systemImage: "safari") }.disabled(!isRunning)
