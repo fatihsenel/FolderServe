@@ -28,6 +28,7 @@ struct RequestDetailView: View {
 
     @State private var tab: DetailTab
     @State private var content: LoadedContent?
+    @State private var copiedCurl = false
 
     init(line: LogLine, initialTab: DetailTab = .headers, preloaded: LoadedContent? = nil, onClose: @escaping () -> Void) {
         self.line = line
@@ -80,6 +81,16 @@ struct RequestDetailView: View {
             Text(entry.url.isEmpty ? entry.path : entry.url)
                 .font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
                 .lineLimit(3).truncationMode(.middle)
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(Self.curlCommand(for: entry), forType: .string)
+                copiedCurl = true
+                Task { try? await Task.sleep(for: .seconds(1.6)); copiedCurl = false }
+            } label: {
+                Label(copiedCurl ? "Copied" : "Copy as cURL", systemImage: copiedCurl ? "checkmark" : "terminal")
+            }
+            .buttonStyle(.plain).font(.caption).foregroundStyle(copiedCurl ? Theme.running : .secondary)
+            .help("Copy a curl command that repeats this request, with its headers and body")
             if let info = repeatInfo { RepeatNote(info: info) }
         }
     }
@@ -327,6 +338,38 @@ struct RequestDetailView: View {
             }.joined(separator: "\n")
         }
         return raw
+    }
+
+    /// A `curl` command that repeats the request: method, URL, request headers and (when it was captured whole and is text) the body.
+    /// Headers curl sets itself (`Host`, `Content-Length`, `Connection`) are left out. Authorization and cookies are included as sent.
+    static func curlCommand(for entry: RequestLogEntry) -> String {
+        func quote(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+        let url = entry.url.isEmpty ? entry.path : entry.url
+        var parts = ["curl " + quote(url)]
+        if entry.method == "HEAD" { parts.append("--head") } else if entry.method != "GET" { parts.append("-X " + entry.method) }
+
+        let skipped: Set<String> = ["host", "content-length", "connection", "keep-alive"]
+        var compressed = false
+        for h in entry.requestHeaders where !skipped.contains(h.name.lowercased()) && !h.name.hasPrefix(":") {
+            if h.name.lowercased() == "accept-encoding" { compressed = true; continue }   // --compressed asks for it and decodes
+            parts.append("-H " + quote("\(h.name): \(h.value)"))
+        }
+        if compressed { parts.append("--compressed") }
+
+        var notes: [String] = []
+        if let body = entry.requestBody {
+            if entry.requestBodyTruncated {
+                notes.append("# The request body was cut off when captured, so it is not included.")
+            } else if let text = String(data: body, encoding: .utf8) {
+                parts.append("--data-raw " + quote(text))
+            } else {
+                notes.append("# The request body is binary, so it is not included.")
+            }
+        }
+        // FolderServe's HTTPS and proxied targets use a self-signed certificate for loopback.
+        if let u = URL(string: url), u.scheme == "https", let host = u.host,
+           host == "localhost" || host == "::1" || host.hasPrefix("127.") { parts.append("--insecure") }
+        return ([parts.joined(separator: " \\\n  ")] + notes).joined(separator: "\n")
     }
 
     static let jsonKeyColor = Color(red: 0.55, green: 0.75, blue: 1.0)
