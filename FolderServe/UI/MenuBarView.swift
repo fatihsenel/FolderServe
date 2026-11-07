@@ -92,6 +92,13 @@ private struct MenuBarRow: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 10).padding(.vertical, 7)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Theme.running.opacity(manager.highlightedIDs.contains(entry.id) ? 0.9 : 0), lineWidth: 1.5)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Theme.running.opacity(manager.highlightedIDs.contains(entry.id) ? 0.16 : 0)))
+                .animation(.smooth(duration: 0.5), value: manager.highlightedIDs.contains(entry.id))
+                .allowsHitTesting(false))
     }
 
     private var detail: String {

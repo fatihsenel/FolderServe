@@ -115,3 +115,10 @@ response headers), **Payload** (request body of proxied calls, JSON pretty-print
 - Details are held in memory only: never written to disk, gone on Clear or quit. They are shown **unmasked**
   (`Authorization`, `Cookie`, request bodies such as passwords), as in browser dev tools.
 - Not included yet: audio/video preview, a timing waterfall, WebSocket frames, HAR export.
+
+## Dropping folders
+
+While you drag a folder over the window the list dims and a landing pad appears ("Drop to start serving"). On drop
+a burst of rings and sparks plays where you let go, the new card pops in, scrolls into view and glows green for a
+couple of seconds (also when you drop a folder that is already listed, or open one via the Dock or `open -a`).
+With Reduce Motion on, the dashes, ripples and sparks are replaced by a simple fade.

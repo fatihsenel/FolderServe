@@ -175,6 +175,39 @@ final class ServerManagerTests: XCTestCase {
         XCTAssertNil(ServerManager.readServedFile(path: f.appendingPathComponent("missing").path, folderPath: f.path, limit: 100))
     }
 
+    func testAddedFolderIsHighlightedThenFades() async throws {
+        let m = ServerManager(store: InMemoryStore(), defaultStartPort: startPort, minSearchDuration: 0, highlightDuration: 0.3)
+        defer { m.stopAll() }
+        let id = m.add(folder: try folder())
+        XCTAssertTrue(m.highlightedIDs.contains(id))
+        XCTAssertEqual(m.lastHighlightedID, id)
+        let faded = await waitFor(3) { !m.highlightedIDs.contains(id) }
+        XCTAssertTrue(faded, "the glow ends after the highlight duration")
+        XCTAssertEqual(m.lastHighlightedID, id, "the list can still scroll to it")
+    }
+
+    func testDroppingAnExistingFolderAgainHighlightsItAgain() async throws {
+        let m = ServerManager(store: InMemoryStore(), defaultStartPort: startPort, minSearchDuration: 0, highlightDuration: 0.3)
+        defer { m.stopAll() }
+        let f = try folder()
+        let id = m.add(folder: f)
+        _ = await waitFor(3) { !m.highlightedIDs.contains(id) }
+        XCTAssertEqual(m.add(folder: f), id)
+        XCTAssertTrue(m.highlightedIDs.contains(id))
+        XCTAssertEqual(m.entries.count, 1)
+    }
+
+    func testHighlightIsExtendedWhenTriggeredTwiceInARow() async throws {
+        let m = ServerManager(store: InMemoryStore(), defaultStartPort: startPort, minSearchDuration: 0, highlightDuration: 0.5)
+        defer { m.stopAll() }
+        let f = try folder()
+        let id = m.add(folder: f)
+        try await Task.sleep(nanoseconds: 300_000_000)
+        _ = m.add(folder: f)                                  // restarts the timer
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertTrue(m.highlightedIDs.contains(id), "0.6 s after the first drop but only 0.3 s after the second")
+    }
+
     func testAddingSameFolderTwiceReturnsSameID() throws {
         let f = try folder()
         let a = manager.add(folder: f)

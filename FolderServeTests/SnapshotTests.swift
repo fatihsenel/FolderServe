@@ -37,6 +37,21 @@ final class SnapshotTests: XCTestCase {
         try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-narrow-dark.png"))
     }
 
+    func testRenderDragOverSnapshots() throws {
+        for (name, populated) in [("drag-empty", false), ("drag-populated", true)] {
+            let view = ServersView(initiallyTargeted: true)
+                .environment(PreviewData.manager(populated: populated))
+                .environment(\.colorScheme, .dark)
+                .environment(\.isSnapshotRendering, true)
+                .frame(width: 860, height: 720).background(Theme.background(.dark))
+            let renderer = ImageRenderer(content: view); renderer.scale = 2
+            let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+            XCTAssertGreaterThan(png.count, 10_000)
+            let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+            try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-\(name).png"))
+        }
+    }
+
     func testRenderMainWindowSnapshots() throws {
         try render("empty-dark", populated: false, scheme: .dark)
         try render("populated-dark", populated: true, scheme: .dark)
