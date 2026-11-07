@@ -12,7 +12,11 @@ struct ServerEntry: Codable, Identifiable, Equatable {
     /// Whether the server should be running after the next launch.
     var autoStart: Bool
 
-    var displayName: String { URL(fileURLWithPath: folderPath).lastPathComponent }
+    /// Optional label chosen by the user. The folder on disk and the URL are not affected.
+    var customName: String?
+
+    var folderName: String { URL(fileURLWithPath: folderPath).lastPathComponent }
+    var displayName: String { customName ?? folderName }
 }
 
 /// What the port search has found so far; drives the "finding a free port" animation.
