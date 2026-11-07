@@ -52,6 +52,13 @@ public enum RepeatAnalysis {
             let cc = h["cache-control"]?.lowercased() ?? ""
             return cc.contains("no-cache") || cc.contains("max-age=0") || h["pragma"]?.lowercased() == "no-cache"
         }
+        // A request with no page behind it (no referer, "none" site, empty destination) next to a normal one.
+        func detached(_ h: [String: String]) -> Bool {
+            h["sec-fetch-site"] == "none" && h["sec-fetch-dest"] == "empty" && h["referer"] == nil
+        }
+        if detached(a) != detached(b) {
+            return "One of the two was not made by the page (no referer, sec-fetch-site: none). That is how browser DevTools or an extension re-fetches a file to show it, which it has to do when the response is no-store. Turn on Cache in Options to let it read from its cache instead."
+        }
         if gap > 2_000 {
             return revalidating
                 ? "The page was loaded or reloaded again, and the browser skipped its cache (DevTools “Disable cache” or a hard reload)."

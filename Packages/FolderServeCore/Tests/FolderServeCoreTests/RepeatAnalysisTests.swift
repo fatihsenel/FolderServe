@@ -39,6 +39,15 @@ final class RepeatAnalysisTests: XCTestCase {
         XCTAssertTrue(info.headline.contains("separate page loads"), info.headline)
     }
 
+    func testRequestWithoutAPageIsBlamedOnDevToolsOrAnExtension() throws {
+        let page = ["sec-fetch-dest": "script", "sec-fetch-site": "same-origin", "sec-fetch-mode": "cors", "referer": "http://127.0.0.1:8080/"]
+        let tool = ["sec-fetch-dest": "empty", "sec-fetch-site": "none", "sec-fetch-mode": "cors"]
+        let info = try XCTUnwrap(RepeatAnalysis.analyze(entry(at: 3, tool), earlier: [entry(at: 0, page)]))
+        XCTAssertTrue(info.headline.contains("DevTools"), info.headline)
+        XCTAssertTrue(info.headline.contains("Cache"))
+        XCTAssertEqual(Set(info.differences.map(\.header)), ["sec-fetch-dest", "sec-fetch-site", "referer"])
+    }
+
     func testPrefetchPurposeWins() throws {
         let info = try XCTUnwrap(RepeatAnalysis.analyze(entry(at: 0.1), earlier: [entry(at: 0, ["sec-purpose": "prefetch"])]))
         XCTAssertTrue(info.headline.contains("prefetch"))
