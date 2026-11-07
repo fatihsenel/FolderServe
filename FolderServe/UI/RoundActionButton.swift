@@ -43,17 +43,17 @@ struct RoundActionButton: View {
                 .opacity(isRunning ? 1 : 0)
             VStack(spacing: 4) {
                 ZStack {
-                    glyph("play.fill", visible: !isRunning).offset(x: active && !reduceMotion ? 2 : 0)
+                    glyph("play.fill", visible: !isRunning)
                     glyph("stop.fill", visible: isRunning)
                 }
                 .frame(height: 24)
+                .scaleEffect(active && !reduceMotion ? 1.12 : 1)   // about its own centre: the icon never moves
                 ZStack {
                     label("Start", visible: !isRunning)
                     label("Stop", visible: isRunning)
                 }
             }
             .foregroundStyle(.white)
-            .scaleEffect(active && !reduceMotion ? 1.08 : 1)
         }
         .frame(width: 68, height: 68)
         .overlay(Circle().strokeBorder(.white.opacity(active ? 0.6 : 0.35), lineWidth: 1))
