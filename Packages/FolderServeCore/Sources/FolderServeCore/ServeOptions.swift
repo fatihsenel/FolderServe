@@ -12,18 +12,25 @@ public struct ServeOptions: Codable, Equatable, Sendable {
     /// Let the browser keep files and re-check them with an ETag (answered 304 when unchanged) instead of
     /// downloading everything on every reload. Off by default: every response is `no-store`.
     public var caching = false
+    /// Serve over HTTPS with a self-signed localhost certificate (secure-context APIs, cookies, service workers).
+    public var https = false
+    /// Listen on the local network too (phones, other computers). Off by default: the folder, and any proxy
+    /// rule, is then reachable by everyone on the same network.
+    public var shareOnNetwork = false
 
     public init(spaMode: Bool = true, liveReload: Bool = true, serveDotfiles: Bool = false, cors: Bool = false,
-                proxyRules: [ProxyRule] = [], caching: Bool = false) {
+                proxyRules: [ProxyRule] = [], caching: Bool = false, https: Bool = false, shareOnNetwork: Bool = false) {
         self.spaMode = spaMode
         self.liveReload = liveReload
         self.serveDotfiles = serveDotfiles
         self.cors = cors
         self.proxyRules = proxyRules
         self.caching = caching
+        self.https = https
+        self.shareOnNetwork = shareOnNetwork
     }
 
-    // Older saved settings have no "cors" key.
+    // Older saved settings lack newer keys; they default to off (or on, for the original switches).
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         spaMode = try c.decodeIfPresent(Bool.self, forKey: .spaMode) ?? true
@@ -32,5 +39,7 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         cors = try c.decodeIfPresent(Bool.self, forKey: .cors) ?? false
         proxyRules = try c.decodeIfPresent([ProxyRule].self, forKey: .proxyRules) ?? []
         caching = try c.decodeIfPresent(Bool.self, forKey: .caching) ?? false
+        https = try c.decodeIfPresent(Bool.self, forKey: .https) ?? false
+        shareOnNetwork = try c.decodeIfPresent(Bool.self, forKey: .shareOnNetwork) ?? false
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import Security
 
 public enum StaticServerError: Error, Equatable {
     case portInUse(UInt16)
@@ -14,6 +15,8 @@ public final class StaticServer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "folderserve.static-server")
     private let lock = NSLock()
     private var options: ServeOptions
+    /// When set, the listener speaks TLS with this identity.
+    private let identity: SecIdentity?
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: NWConnection] = [:]
     /// Extra response headers (CORS) for the request currently being answered on a connection.
@@ -35,7 +38,8 @@ public final class StaticServer: @unchecked Sendable {
         set { lock.lock(); defer { lock.unlock() }; _onRequest = newValue }
     }
 
-    public init(root: URL, port: UInt16, options: ServeOptions) {
+    public init(root: URL, port: UInt16, options: ServeOptions, identity: SecIdentity? = nil) {
+        self.identity = identity
         self.root = root
         self.requestedPort = port
         self.options = options
@@ -51,7 +55,15 @@ public final class StaticServer: @unchecked Sendable {
 
     /// Starts listening; returns the actual port (useful when `port` was 0).
     public func start() async throws -> UInt16 {
-        let params = NWParameters.tcp
+        let params: NWParameters
+        if let identity, let secIdentity = sec_identity_create(identity) {
+            let tls = NWProtocolTLS.Options()
+            sec_protocol_options_set_local_identity(tls.securityProtocolOptions, secIdentity)
+            sec_protocol_options_set_min_tls_protocol_version(tls.securityProtocolOptions, .TLSv12)
+            params = NWParameters(tls: tls)
+        } else {
+            params = .tcp
+        }
         let port: NWEndpoint.Port = requestedPort == 0 ? .any : NWEndpoint.Port(rawValue: requestedPort)!
         params.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: port)
         let listener: NWListener
@@ -167,7 +179,9 @@ public final class StaticServer: @unchecked Sendable {
 
     // MARK: - Responses
 
-    private func respond(_ conn: NWConnection, _ req: HTTPRequest, buffered: Data = Data()) {
+    private func respond(_ conn: NWConnection, _ parsed: HTTPRequest, buffered: Data = Data()) {
+        var req = parsed
+        req.secure = identity != nil
         connRequest[ObjectIdentifier(conn)] = (req, Date())
         guard HostPolicy.isAllowed(req.headers["host"]) else {
             sendPage(conn, status: 403, message: "Host not allowed", method: req.method, path: req.path, head: req.method == "HEAD")
@@ -224,7 +238,7 @@ public final class StaticServer: @unchecked Sendable {
 
     private func proxy(_ conn: NWConnection, _ req: HTTPRequest, rule: ProxyRule, buffered: Data, corsOn: Bool) {
         let isHead = req.method == "HEAD"
-        if !corsOn && !ProxyRule.isSameOriginRequest(headers: req.headers) {
+        if !corsOn && !ProxyRule.isSameOriginRequest(headers: req.headers, secure: req.secure) {
             sendPage(conn, status: 403, message: "Cross-origin request blocked. Turn on CORS for this folder if another origin needs the API.",
                      method: req.method, path: req.path, head: isHead)
             return
@@ -296,7 +310,7 @@ public final class StaticServer: @unchecked Sendable {
             var origins: [String] = []
             if let host = req.headers["host"], ProxyRule.rewritableExtensions.contains(ext), size <= Int64(ProxyRule.maxRewritableBytes) {
                 origins = currentOptions.proxyRules.filter { $0.problem == nil && $0.rewriteAddress }.compactMap(\.targetOrigin)
-                localOrigin = "http://" + host
+                localOrigin = (identity != nil ? "https://" : "http://") + host
             }
             if ((liveReload && isHTML) || !origins.isEmpty), size <= Self.maxInjectableBytes,
                let original = try? Data(contentsOf: url) {
