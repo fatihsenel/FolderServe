@@ -26,7 +26,7 @@ final class FolderServeAppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     static func restoreServers(manager: ServerManager) {
-        if manager.startServersAtLaunch { manager.startAutoStartEntries() }
+        manager.startAutoStartEntries(pinnedOnly: !manager.startServersAtLaunch)
     }
 
     /// Folders/files dropped on the Dock icon, or passed via `open -a FolderServe <path>`.

@@ -15,6 +15,10 @@ struct ServerEntry: Codable, Identifiable, Equatable {
     /// Optional label chosen by the user. The folder on disk and the URL are not affected.
     var customName: String?
 
+    /// "Always start at launch": starts even if it was stopped when the app quit. nil in older saved data.
+    var pinnedStart: Bool?
+    var startsAlways: Bool { pinnedStart == true }
+
     var folderName: String { URL(fileURLWithPath: folderPath).lastPathComponent }
     var displayName: String { customName ?? folderName }
 }

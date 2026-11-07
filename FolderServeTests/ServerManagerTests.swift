@@ -392,6 +392,28 @@ final class ServerManagerTests: XCTestCase {
         XCTAssertEqual(manager.statuses[a], .stopped)
     }
 
+    func testPinnedFolderStartsAtLaunchEvenAfterAUserStop() async throws {
+        let a = manager.add(folder: try folder("pin-a"))
+        let b = manager.add(folder: try folder("pin-b"))
+        await expectEventually { runningPort(a) != nil && runningPort(b) != nil }
+        manager.setAlwaysStart(a, true)
+        manager.stop(a); manager.stop(b)
+        manager.startAutoStartEntries(pinnedOnly: true)   // "start servers at launch" is off
+        await expectEventually { runningPort(a) != nil }
+        XCTAssertEqual(manager.statuses[b], .stopped, "unpinned folders stay stopped")
+        manager.setAlwaysStart(a, false)
+        XCTAssertFalse(manager.entries.first { $0.id == a }!.startsAlways)
+    }
+
+    func testPinSurvivesReloadAndOldDataLoadsUnpinned() throws {
+        let store = InMemoryStore()
+        let m = ServerManager(store: store, defaultStartPort: startPort, minSearchDuration: 0)
+        let id = m.add(folder: try folder("pin-c"))
+        m.setAlwaysStart(id, true)
+        let again = ServerManager(store: store, defaultStartPort: startPort, minSearchDuration: 0)
+        XCTAssertTrue(again.entries.first { $0.id == id }?.startsAlways == true)
+    }
+
     func testRequestsAreLogged() async throws {
         let f = try folder()
         try "x".write(to: f.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)

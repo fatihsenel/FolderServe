@@ -18,6 +18,11 @@ struct ServerCardView: View {
                         HStack(spacing: 8) {
                             title(for: entry)
                             if let kind = manager.projectKinds[entryID] { ProjectBadge(kind: kind) }
+                            if entry.startsAlways {
+                                Image(systemName: "pin.fill").font(.system(size: 11)).foregroundStyle(.secondary)
+                                    .help("Always starts when FolderServe opens")
+                                    .accessibilityLabel("Always starts at launch")
+                            }
                         }
                         Text(entry.folderPath).font(.caption).foregroundStyle(.secondary)
                             .lineLimit(1).truncationMode(.middle)
@@ -153,6 +158,9 @@ struct ServerCardView: View {
             .onTapGesture(count: 2) { beginRename(entry) }
             .contextMenu {
                 Button("Rename…") { beginRename(entry) }
+                Button { manager.setAlwaysStart(entryID, !entry.startsAlways) } label: {
+                    if entry.startsAlways { Label("Always start at launch", systemImage: "checkmark") } else { Text("Always start at launch") }
+                }
                 if entry.customName != nil { Button("Use folder name") { manager.rename(entryID, to: "") } }
             }
         }
