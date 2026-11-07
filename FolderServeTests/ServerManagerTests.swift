@@ -94,14 +94,13 @@ final class ServerManagerTests: XCTestCase {
         XCTAssertEqual(manager.entries.count, 1)
     }
 
-    func testPortConflictPicksNextFreeAndSetsNotice() async throws {
+    func testPortConflictPicksNextFreePort() async throws {
         let blocker = StaticServer(root: base, port: startPort, options: ServeOptions())
         _ = try await blocker.start()
         blockers.append(blocker)
         let id = manager.add(folder: try folder())
         await expectEventually { runningPort(id) != nil }
         XCTAssertGreaterThan(try XCTUnwrap(runningPort(id)), startPort)
-        XCTAssertNotNil(manager.notice)
     }
 
     func testPortSearchIsShownThenSettlesOnRunning() async throws {

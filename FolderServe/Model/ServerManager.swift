@@ -9,7 +9,6 @@ final class ServerManager {
     private(set) var statuses: [UUID: ServerStatus] = [:]
     /// Detected framework per folder; filled in when a server starts (needs folder access).
     private(set) var projectKinds: [UUID: ProjectKind] = [:]
-    var notice: String?
     private(set) var log: [LogLine] = []
     /// Global setting: serve dotfiles (e.g. .env) from every folder. Off by default.
     private(set) var serveDotfiles: Bool
@@ -190,7 +189,6 @@ final class ServerManager {
             let server = StaticServer(root: folder, port: free, options: entry.options)
             do {
                 let port = try await server.start()
-                if port != defaultStartPort { notice = "Port \(defaultStartPort) was busy — \(entry.displayName) is using \(port)." }
                 attach(server, id: id, port: port, searching: animate)
                 if animate {
                     publish(landed: port)
