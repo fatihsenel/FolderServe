@@ -14,9 +14,13 @@ struct ActivityView: View {
     @AppStorage("activityDetailHintSeen") private var hintSeen = false
     @State private var hoveredID: UUID?
 
-    init(initialSelection: UUID? = nil, initiallyHovered: UUID? = nil) {
+    /// Text typed in the search field; every word must match a request for it to be listed.
+    @State private var query: String
+
+    init(initialSelection: UUID? = nil, initiallyHovered: UUID? = nil, initialQuery: String = "") {
         _selectedID = State(initialValue: initialSelection)
         _hoveredID = State(initialValue: initiallyHovered)
+        _query = State(initialValue: initialQuery)
     }
 
     /// Everything logged for the chosen server.
@@ -24,18 +28,21 @@ struct ActivityView: View {
     private var detachedCount: Int { allServerLines.filter { $0.entry.isDetached }.count }
     /// Lines of the chosen server that are not hidden (the category chips count these).
     private var serverLines: [LogLine] { showDetached ? allServerLines : allServerLines.filter { !$0.entry.isDetached } }
-    /// What is listed: the chosen server and category.
+    /// Lines of the chosen server that match the search (the category chips count these).
+    private var searchedLines: [LogLine] { serverLines.filter { Self.matches($0.entry, query: query) } }
+    /// What is listed: the chosen server, the search and the category.
     private var lines: [LogLine] {
-        guard let category else { return serverLines }
-        return serverLines.filter { $0.entry.category == category }
+        guard let category else { return searchedLines }
+        return searchedLines.filter { $0.entry.category == category }
     }
+    private var isSearching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
     private var selectedLine: LogLine? {
         guard let selectedID else { return nil }
         return manager.logLines(for: nil).first { $0.id == selectedID }
     }
     private func count(_ c: RequestCategory?) -> Int {
-        guard let c else { return serverLines.count }
-        return serverLines.filter { $0.entry.category == c }.count
+        guard let c else { return searchedLines.count }
+        return searchedLines.filter { $0.entry.category == c }.count
     }
 
     var body: some View {
@@ -43,6 +50,7 @@ struct ActivityView: View {
             HStack {
                 Text("Activity").font(.system(size: 30, weight: .bold, design: .rounded))
                 Spacer()
+                searchField
                 Picker("Server", selection: $filter) {
                     Text("All servers").tag(UUID?.none)
                     ForEach(manager.entries) { Text($0.displayName).tag(UUID?.some($0.id)) }
@@ -76,6 +84,7 @@ struct ActivityView: View {
         // The details belong to the list that was on screen: close them when the list changes.
         .onChange(of: category) { _, _ in selectedID = nil }
         .onChange(of: filter) { _, _ in selectedID = nil }
+        .onChange(of: query) { _, _ in selectedID = nil }
         .padding(28)
     }
 
@@ -86,6 +95,7 @@ struct ActivityView: View {
                     Image(systemName: "waveform.path.ecg").font(.system(size: 34, weight: .light))
                     Text(allServerLines.isEmpty ? "Requests will appear here as pages load."
                          : serverLines.isEmpty ? "Only requests from DevTools or extensions so far (hidden)."
+                         : isSearching ? "No requests match “\(query.trimmingCharacters(in: .whitespaces))”."
                                              : "No \(category?.label ?? "") requests yet.")
                         .foregroundStyle(.secondary)
                 }
@@ -117,6 +127,34 @@ struct ActivityView: View {
 
     private func detail(_ line: LogLine) -> some View {
         RequestDetailView(line: line) { selectedID = nil }
+    }
+
+    /// Filters the list by method, path, status, note or type. Esc or × clears it.
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Search requests", text: $query)
+                .textFieldStyle(.plain)
+                .onExitCommand { query = "" }
+            if !query.isEmpty {
+                Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).help("Clear the search")
+                    .accessibilityLabel("Clear the search")
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .frame(width: 220)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.quaternary.opacity(0.6)))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
+        .help("Type words such as “post login 200”: a request is listed when each word matches its method, path, status, note or type")
+    }
+
+    /// True when every word of the query appears (any case) in the request's method, path, status, note or type.
+    static func matches(_ entry: RequestLogEntry, query: String) -> Bool {
+        let words = query.lowercased().split(whereSeparator: \.isWhitespace)
+        guard !words.isEmpty else { return true }
+        let haystack = "\(entry.method) \(entry.path) \(entry.status) \(entry.note ?? "") \(entry.category.label)".lowercased()
+        return words.allSatisfy { haystack.contains($0) }
     }
 
     private var categoryChips: some View {
