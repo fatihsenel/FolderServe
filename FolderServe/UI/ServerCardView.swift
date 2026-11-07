@@ -33,6 +33,16 @@ struct ServerCardView: View {
                     Toggle("Live reload", isOn: binding(\.liveReload, entry)).toggleStyle(GlowToggleStyle())
                     Toggle("SPA mode", isOn: binding(\.spaMode, entry)).toggleStyle(GlowToggleStyle())
                         .help("Serve index.html for unknown paths so client-side routers work")
+                    HStack(spacing: 4) {
+                        Toggle("CORS", isOn: binding(\.cors, entry)).toggleStyle(GlowToggleStyle())
+                            .help("Let pages from other origins (e.g. an app on localhost:4200) read these files. Adds Access-Control-Allow-Origin and answers preflight requests.")
+                        if entry.options.cors {
+                            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11))
+                                .foregroundStyle(Theme.warning)
+                                .help("CORS is on: any website open in your browser can read the files served here. Turn it off when you don't need it.")
+                                .accessibilityLabel("Warning: any website can read these files")
+                        }
+                    }
                     Spacer()
                     Button { open() } label: { Label("Open", systemImage: "safari") }.disabled(!isRunning)
                     Button { copyURL() } label: { Label("Copy URL", systemImage: "doc.on.doc") }.disabled(!isRunning)

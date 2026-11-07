@@ -57,3 +57,13 @@ appears once the server has started. Logos are from [Simple Icons](https://simpl
 framework names and logos are trademarks of their owners.
 
 The app icon source is `branding/AppIcon.svg`.
+
+## CORS
+
+Each folder has a **CORS** switch (off by default). When on, responses carry
+`Access-Control-Allow-Origin: *` and `OPTIONS` preflight requests are answered, so a page on another
+origin (for example an app on `localhost:4200`) can read files served here.
+
+Turning it on lets *any* website open in your browser read those files, so leave it off unless you need it.
+It does not help with errors from calling an API on another origin from your served app: that server must
+allow your origin, or the request must go through a proxy.

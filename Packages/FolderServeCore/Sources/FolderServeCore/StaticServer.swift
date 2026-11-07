@@ -16,6 +16,8 @@ public final class StaticServer: @unchecked Sendable {
     private var options: ServeOptions
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: NWConnection] = [:]
+    /// Extra response headers (CORS) for the request currently being answered on a connection.
+    private var connHeaders: [ObjectIdentifier: [String: String]] = [:]
     private var _onRequest: (@Sendable (RequestLogEntry) -> Void)?
     private let hub = ReloadHub()
     private var watcher: FolderWatcher?
@@ -129,7 +131,7 @@ public final class StaticServer: @unchecked Sendable {
         connections[id] = conn
         conn.stateUpdateHandler = { [weak self] state in
             switch state {
-            case .cancelled, .failed: self?.queue.async { self?.connections[id] = nil }
+            case .cancelled, .failed: self?.queue.async { self?.connections[id] = nil; self?.connHeaders[id] = nil }
             default: break
             }
         }
@@ -165,9 +167,18 @@ public final class StaticServer: @unchecked Sendable {
             handleReloadStream(conn)
             return
         }
+        let corsOn = currentOptions.cors
+        if corsOn {
+            connHeaders[ObjectIdentifier(conn)] = Self.corsHeaders(for: req)
+            if req.method == "OPTIONS" {
+                sendBody(conn, status: 204, contentType: "text/plain", body: Data(), method: req.method, path: req.path,
+                         head: true, extra: Self.preflightHeaders(for: req))
+                return
+            }
+        }
         guard req.method == "GET" || req.method == "HEAD" else {
             sendPage(conn, status: 405, message: "Method not allowed", method: req.method, path: req.path,
-                     head: false, extra: ["Allow": "GET, HEAD"])
+                     head: false, extra: ["Allow": corsOn ? "GET, HEAD, OPTIONS" : "GET, HEAD"])
             return
         }
         let isHead = req.method == "HEAD"
@@ -230,14 +241,14 @@ public final class StaticServer: @unchecked Sendable {
         }
         headers["Content-Length"] = String(length)
         log(req, status: status, bytes: length)
-        let headData = Data(Self.head(status: status, headers: headers).utf8)
+        let headData = Data(responseHead(conn, status: status, headers: headers).utf8)
 
         if head || length == 0 {
             sendFinal(conn, headData)
             return
         }
         guard let fh = try? FileHandle(forReadingFrom: url) else {
-            sendFinal(conn, Data(Self.head(status: 500, headers: ["Content-Length": "0"]).utf8))
+            sendFinal(conn, Data(responseHead(conn, status: 500, headers: ["Content-Length": "0"]).utf8))
             return
         }
         do { try fh.seek(toOffset: UInt64(range.lowerBound)) } catch { try? fh.close(); conn.cancel(); return }
@@ -274,7 +285,7 @@ public final class StaticServer: @unchecked Sendable {
         headers["Content-Type"] = contentType
         headers["Content-Length"] = String(body.count)
         lockedLog(RequestLogEntry(method: method, path: path, status: status, bytes: Int64(body.count)))
-        var out = Data(Self.head(status: status, headers: headers).utf8)
+        var out = Data(responseHead(conn, status: status, headers: headers).utf8)
         if !head { out.append(body) }
         sendFinal(conn, out)
     }
@@ -294,6 +305,29 @@ public final class StaticServer: @unchecked Sendable {
 
     private static let maxInjectableBytes: Int64 = 20 * 1024 * 1024
 
+    /// Headers added to every response when CORS is on.
+    static func corsHeaders(for req: HTTPRequest) -> [String: String] {
+        ["Access-Control-Allow-Origin": "*",
+         "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges, Content-Type"]
+    }
+
+    /// Extra headers for an OPTIONS preflight answer.
+    static func preflightHeaders(for req: HTTPRequest) -> [String: String] {
+        var h = ["Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                 "Access-Control-Max-Age": "600",
+                 "Content-Length": "0"]
+        h["Access-Control-Allow-Headers"] = req.headers["access-control-request-headers"] ?? "*"
+        // Chrome's Private Network Access: a public page asking to reach localhost.
+        if req.headers["access-control-request-private-network"] == "true" { h["Access-Control-Allow-Private-Network"] = "true" }
+        return h
+    }
+
+    private func responseHead(_ conn: NWConnection, status: Int, headers: [String: String]) -> String {
+        var merged = headers
+        for (k, v) in connHeaders[ObjectIdentifier(conn)] ?? [:] { merged[k] = v }
+        return Self.head(status: status, headers: merged)
+    }
+
     private static func head(status: Int, headers: [String: String]) -> String {
         var s = "HTTP/1.1 \(status) \(reason(status))\r\n"
         for (k, v) in headers.sorted(by: { $0.key < $1.key }) { s += "\(k): \(v)\r\n" }
@@ -304,6 +338,7 @@ public final class StaticServer: @unchecked Sendable {
     private static func reason(_ status: Int) -> String {
         switch status {
         case 200: return "OK"
+        case 204: return "No Content"
         case 206: return "Partial Content"
         case 301: return "Moved Permanently"
         case 400: return "Bad Request"
