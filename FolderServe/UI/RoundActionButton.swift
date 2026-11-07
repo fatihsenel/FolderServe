@@ -19,11 +19,11 @@ struct RoundActionButton: View {
                 face
             }
             .frame(width: 68, height: 68)
+            .contentShape(Circle())
+            .onHover { inside in withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { hovering = inside } }
         }
         .buttonStyle(PressScaleStyle(reduceMotion: reduceMotion))
-        .scaleEffect(hovering && !isBusy && !reduceMotion ? 1.08 : 1)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: hovering)
-        .onHover { hovering = $0 }
+        .scaleEffect(hovering && !isBusy ? 1.14 : 1)
         .disabled(isBusy)
         .help(isRunning ? "Stop serving this folder" : "Start serving this folder")
     }
@@ -32,8 +32,8 @@ struct RoundActionButton: View {
         VStack(spacing: 4) {
             Image(systemName: isRunning ? "stop.fill" : "play.fill")
                 .font(.system(size: 20, weight: .bold))
-                .scaleEffect(hovering && !isBusy && !reduceMotion ? 1.15 : 1)
-                .offset(x: hovering && !isBusy && !isRunning && !reduceMotion ? 2 : 0)
+                .scaleEffect(hovering && !isBusy ? 1.2 : 1)
+                .offset(x: hovering && !isBusy && !isRunning ? 2 : 0)
                 .contentTransition(.symbolEffect(.replace))
             Text(isRunning ? "Stop" : "Start").font(.system(size: 11, weight: .semibold))
         }
@@ -46,8 +46,8 @@ struct RoundActionButton: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing))
         )
         .overlay(Circle().strokeBorder(.white.opacity(hovering ? 0.6 : 0.35), lineWidth: 1))
-        .brightness(hovering && !isBusy ? 0.06 : 0)
-        .shadow(color: glow.opacity(hovering && !isBusy ? 0.75 : 0.45), radius: hovering && !isBusy ? 22 : 14, y: 6)
+        .brightness(hovering && !isBusy ? 0.1 : 0)
+        .shadow(color: glow.opacity(hovering && !isBusy ? 0.95 : 0.45), radius: hovering && !isBusy ? 28 : 14, y: 6)
         .animation(.easeOut(duration: 0.2), value: hovering)
     }
 }
