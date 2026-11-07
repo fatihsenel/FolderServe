@@ -78,6 +78,22 @@ final class RequestDetailTests: XCTestCase {
         }
     }
 
+    func testActivityDurationText() {
+        XCTAssertEqual(ActivityView.durationText(nil), "—")
+        XCTAssertEqual(ActivityView.durationText(0), "< 1 ms")
+        XCTAssertEqual(ActivityView.durationText(42), "42 ms")
+        XCTAssertEqual(ActivityView.durationText(999), "999 ms")
+        XCTAssertEqual(ActivityView.durationText(1240), "1.24 s")
+    }
+
+    func testActivityDurationColourGetsWarmerWhenSlower() {
+        XCTAssertEqual(ActivityView.durationColor(299), .secondary)
+        XCTAssertEqual(ActivityView.durationColor(300), Theme.warning)
+        XCTAssertEqual(ActivityView.durationColor(999), Theme.warning)
+        XCTAssertEqual(ActivityView.durationColor(1000), Theme.failed)
+        XCTAssertEqual(ActivityView.durationColor(nil), .secondary)
+    }
+
     func testBrokenJSONIsShownAsIs() {
         XCTAssertEqual(RequestDetailView.displayText(Data("{oops".utf8), contentType: "application/json"), "{oops")
     }

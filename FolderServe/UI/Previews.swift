@@ -15,9 +15,11 @@ enum PreviewData {
         a.options.proxyRules = [ProxyRule(prefix: "/uiapi", target: "https://localhost:5003")]
         let b = entry("react-dashboard"), c = entry("old-docs"), d = entry("blog"), e = entry("new-folder")
         let now = Date()
-        func line(_ id: UUID, _ method: String, _ path: String, _ status: Int, _ bytes: Int64, _ ago: TimeInterval) -> LogLine {
-            LogLine(serverID: id, entry: RequestLogEntry(date: now.addingTimeInterval(-ago), method: method, path: path, status: status, bytes: bytes,
-                                                         category: .classify(path: path, secFetchDest: nil, proxied: path.hasPrefix("/uiapi"))))
+        func line(_ id: UUID, _ method: String, _ path: String, _ status: Int, _ bytes: Int64, _ ago: TimeInterval, ms: Int? = nil) -> LogLine {
+            var e = RequestLogEntry(date: now.addingTimeInterval(-ago), method: method, path: path, status: status, bytes: bytes,
+                                    category: .classify(path: path, secFetchDest: nil, proxied: path.hasPrefix("/uiapi")))
+            e.durationMs = ms ?? (path.hasPrefix("/uiapi") ? 640 : (bytes > 100_000 ? 85 : 3))
+            return LogLine(serverID: id, entry: e)
         }
         m.loadPreview(entries: [a, b, c, d, e], statuses: [
             a.id: .running(port: 8080), b.id: .running(port: 8081), c.id: .folderMissing,
@@ -27,7 +29,7 @@ enum PreviewData {
             line(a.id, "GET", "/", 200, 4_210, 9), line(a.id, "GET", "/assets/app.css", 200, 18_400, 8),
             line(b.id, "GET", "/users/42", 200, 1_024, 5), line(b.id, "GET", "/favicon.ico", 404, 612, 4),
             line(a.id, "GET", "/old-page", 301, 140, 2), line(b.id, "GET", "/.env", 403, 580, 1),
-            line(a.id, "POST", "/uiapi/Account/Login", 200, 912, 1), line(a.id, "GET", "/fonts/inter.woff2", 200, 48_000, 1),
+            line(a.id, "POST", "/uiapi/Account/Login", 200, 912, 1, ms: 1240), line(a.id, "GET", "/fonts/inter.woff2", 200, 48_000, 1),
             line(b.id, "GET", "/main-AB12.js", 200, 350_000, 1), line(b.id, "GET", "/logo.png", 200, 9_300, 1),
         ], kinds: [a.id: .angular, b.id: .react, d.id: .vue])
         return m

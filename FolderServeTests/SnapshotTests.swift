@@ -53,6 +53,27 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// The Activity list with the "click a request" hint, a hovered row and the chevrons.
+    func testRenderActivityDiscoverabilitySnapshot() throws {
+        let key = "activityDetailHintSeen"
+        let before = UserDefaults.standard.object(forKey: key)
+        UserDefaults.standard.set(false, forKey: key)
+        defer { if let before { UserDefaults.standard.set(before, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) } }
+
+        let manager = PreviewData.manager(populated: true)
+        let hovered = manager.logLines(for: nil).dropFirst(2).first?.id
+        let view = ActivityView(initiallyHovered: hovered)
+            .padding(24)
+            .environment(manager)
+            .environment(\.colorScheme, .dark)
+            .environment(\.isSnapshotRendering, true)
+            .frame(width: 860, height: 560).background(Theme.background(.dark))
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-activity-hint.png"))
+    }
+
     func testRenderMainWindowSnapshots() throws {
         try render("empty-dark", populated: false, scheme: .dark)
         try render("populated-dark", populated: true, scheme: .dark)
