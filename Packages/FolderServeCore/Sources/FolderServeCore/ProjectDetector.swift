@@ -42,14 +42,20 @@ public enum ProjectDetector {
                              ("nuxt.config.ts", .nuxt), ("nuxt.config.js", .nuxt), ("astro.config.mjs", .astro),
                              ("svelte.config.js", .svelte)] where exists(file) { return kind }
 
-        guard let html = readSmallText(root.appendingPathComponent("index.html")) else { return nil }
-        return detect(indexHTML: html) ?? .html
+        guard let html = readSmallText(root.appendingPathComponent("index.html"))
+                ?? readSmallText(root.appendingPathComponent("index.csr.html")) else { return nil }
+        if let kind = detect(indexHTML: html) { return kind }
+        // Angular's application builder emits `dist/<app>/browser/` with main-*.js (+ polyfills-*.js).
+        if root.lastPathComponent == "browser", html.contains("src=\"main") { return .angular }
+        return .html
     }
 
     /// Heuristics for the `index.html` of built output. Returns nil when nothing specific is recognised.
     public static func detect(indexHTML html: String) -> ProjectKind? {
         func has(_ s: String) -> Bool { html.contains(s) }
         if has("ng-version") || has("<app-root") { return .angular }
+        // Angular CLI always emits these two entry scripts, whatever the component selector is.
+        if has("src=\"polyfills") && has("src=\"main") { return .angular }
         if has("/_next/") || has("__next") { return .next }
         if has("/_nuxt/") || has("__nuxt") { return .nuxt }
         if has("__sveltekit") { return .svelte }

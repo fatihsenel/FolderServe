@@ -34,6 +34,28 @@ final class ProjectDetectorTests: XCTestCase {
     func testMalformedPackageJSON() throws { try write("package.json", "{nope"); XCTAssertNil(ProjectDetector.detect(root: dir)) }
 
     func testBuiltAngular() throws { try write("index.html", "<body><app-root></app-root><script src=\"main-X.js\"></script>"); XCTAssertEqual(ProjectDetector.detect(root: dir), .angular) }
+    func testBuiltAngularCustomSelector() throws {
+        try write("index.html", "<body><my-shell></my-shell><script src=\"polyfills-AB12.js\" type=\"module\"></script><script src=\"main-CD34.js\" type=\"module\"></script>")
+        XCTAssertEqual(ProjectDetector.detect(root: dir), .angular)
+    }
+    func testBrowserFolderWithMainBundleIsAngular() throws {
+        let browser = dir.appendingPathComponent("browser")
+        try FileManager.default.createDirectory(at: browser, withIntermediateDirectories: true)
+        try "<body><x-root></x-root><script src=\"main-ZZ.js\"></script>".write(to: browser.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+        XCTAssertEqual(ProjectDetector.detect(root: browser), .angular)
+    }
+    func testBrowserFolderNameAloneIsNotEnough() throws {
+        let browser = dir.appendingPathComponent("browser")
+        try FileManager.default.createDirectory(at: browser, withIntermediateDirectories: true)
+        try "<h1>hi</h1>".write(to: browser.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+        XCTAssertEqual(ProjectDetector.detect(root: browser), .html)
+    }
+    func testAngularSSRBrowserFolderWithCsrIndex() throws {
+        let browser = dir.appendingPathComponent("browser")
+        try FileManager.default.createDirectory(at: browser, withIntermediateDirectories: true)
+        try "<x-root></x-root><script src=\"main-ZZ.js\"></script>".write(to: browser.appendingPathComponent("index.csr.html"), atomically: true, encoding: .utf8)
+        XCTAssertEqual(ProjectDetector.detect(root: browser), .angular)
+    }
     func testBuiltNext() throws { try write("index.html", "<script src=\"/_next/static/a.js\"></script>"); XCTAssertEqual(ProjectDetector.detect(root: dir), .next) }
     func testBuiltReactVite() throws { try write("index.html", "<div id=\"root\"></div><script type=\"module\" src=\"/assets/i.js\"></script>"); XCTAssertEqual(ProjectDetector.detect(root: dir), .react) }
     func testBuiltVueVite() throws { try write("index.html", "<div id=\"app\"></div><script type=\"module\" src=\"/assets/i.js\"></script>"); XCTAssertEqual(ProjectDetector.detect(root: dir), .vue) }
