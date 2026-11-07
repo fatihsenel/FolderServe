@@ -53,6 +53,8 @@ struct ServerCardView: View {
                 Toggle("Live reload", isOn: binding(\.liveReload, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
                 Toggle("SPA mode", isOn: binding(\.spaMode, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
                     .help("Serve index.html for unknown paths so client-side routers work")
+                Toggle("Cache", isOn: binding(\.caching, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
+                    .help("Let the browser keep files and re-check them with an ETag, so reloads are faster. Pages with live reload are never cached.")
                 HStack(spacing: 4) {
                     Toggle("CORS", isOn: binding(\.cors, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
                         .help("Let pages from other origins (e.g. an app on localhost:4200) read these files. Adds Access-Control-Allow-Origin and answers preflight requests.")

@@ -301,6 +301,16 @@ public final class StaticServer: @unchecked Sendable {
                      head: head, extra: ["Content-Range": "bytes */\(size)"])
             return
         }
+        if status == 200, currentOptions.caching, let etag = Self.etag(for: url, size: size) {
+            headers["ETag"] = etag
+            headers["Cache-Control"] = "no-cache"   // keep it, but ask us first: stays correct while you edit
+            if Self.etagMatches(req.headers["if-none-match"], etag) {
+                sendBody(conn, status: 304, contentType: headers["Content-Type"] ?? "application/octet-stream", body: Data(),
+                         method: req.method, path: req.path, head: true,
+                         extra: ["ETag": etag, "Cache-Control": "no-cache"], servedFile: url.path)
+                return
+            }
+        }
         headers["Content-Length"] = String(length)
         lockedLog(makeEntry(conn, method: req.method, path: req.path, status: status, bytes: length,
                             responseHeaders: headers, servedFile: url.path))
@@ -404,7 +414,7 @@ public final class StaticServer: @unchecked Sendable {
     private func finalHeaders(_ conn: NWConnection, _ headers: [String: String]) -> [String: String] {
         var merged = headers
         for (k, v) in connHeaders[ObjectIdentifier(conn)] ?? [:] { merged[k] = v }
-        merged["Cache-Control"] = "no-store"
+        if merged["Cache-Control"] == nil { merged["Cache-Control"] = "no-store" }
         merged["Connection"] = "close"
         return merged
     }
@@ -418,8 +428,23 @@ public final class StaticServer: @unchecked Sendable {
     private static func head(status: Int, headers: [String: String]) -> String {
         var s = "HTTP/1.1 \(status) \(reason(status))\r\n"
         for (k, v) in headers.sorted(by: { $0.key < $1.key }) { s += "\(k): \(v)\r\n" }
-        s += "Cache-Control: no-store\r\nConnection: close\r\n\r\n"
+        if headers["Cache-Control"] == nil { s += "Cache-Control: no-store\r\n" }
+        s += "Connection: close\r\n\r\n"
         return s
+    }
+
+    /// A weak validator from size and modification time (changes whenever the file is saved).
+    static func etag(for url: URL, size: Int64) -> String? {
+        guard let mtime = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date else { return nil }
+        return "W/\"\(String(size, radix: 16))-\(String(Int64(mtime.timeIntervalSince1970 * 1000), radix: 16))\""
+    }
+
+    /// True when `If-None-Match` lists `etag` (weak comparison) or is `*`.
+    static func etagMatches(_ header: String?, _ etag: String) -> Bool {
+        guard let header else { return false }
+        func strip(_ t: String) -> String { t.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "W/", with: "") }
+        let mine = strip(etag)
+        return header.split(separator: ",").contains { strip(String($0)) == "*" || strip(String($0)) == mine }
     }
 
     private static func reason(_ status: Int) -> String {
@@ -427,6 +452,7 @@ public final class StaticServer: @unchecked Sendable {
         case 200: return "OK"
         case 204: return "No Content"
         case 206: return "Partial Content"
+        case 304: return "Not Modified"
         case 413: return "Payload Too Large"
         case 501: return "Not Implemented"
         case 502: return "Bad Gateway"
