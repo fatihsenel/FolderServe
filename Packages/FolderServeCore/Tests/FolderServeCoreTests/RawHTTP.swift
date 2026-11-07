@@ -69,7 +69,36 @@ enum RawHTTP {
                 headers[l[..<c].lowercased()] = l[l.index(after: c)...].trimmingCharacters(in: .whitespaces)
             }
         }
-        return RawResponse(status: status, headers: headers, body: Data(data[split.upperBound...]))
+        var body = Data(data[split.upperBound...])
+        if headers["transfer-encoding"]?.lowercased() == "chunked" { body = dechunk(body) }
+        return RawResponse(status: status, headers: headers, body: body)
+    }
+
+    /// Decodes an HTTP/1.1 chunked body.
+    static func dechunk(_ data: Data) -> Data {
+        var out = Data(); var i = data.startIndex
+        let crlf = Data("\r\n".utf8)
+        while i < data.endIndex, let eol = data.range(of: crlf, in: i..<data.endIndex) {
+            let sizeText = String(decoding: data[i..<eol.lowerBound], as: UTF8.self)
+            guard let size = Int(sizeText.split(separator: ";").first ?? "", radix: 16), size > 0 else { break }
+            let start = eol.upperBound, end = start + size
+            guard end <= data.endIndex else { out.append(data[start...]); break }
+            out.append(data[start..<end])
+            i = min(end + 2, data.endIndex)
+        }
+        return out
+    }
+
+    /// The whole response as text (status line, every header line, body).
+    static func rawText(port: UInt16, _ request: String) -> String? {
+        let fd = openSocket(host: "127.0.0.1", port: port)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        let bytes = Array(request.utf8)
+        _ = send(fd, bytes, bytes.count, 0)
+        var data = Data(); var buf = [UInt8](repeating: 0, count: 65536)
+        while true { let n = recv(fd, &buf, buf.count, 0); if n <= 0 { break }; data.append(buf, count: n) }
+        return String(decoding: data, as: UTF8.self)
     }
 
     static func get(port: UInt16, _ path: String, headers: String = "", method: String = "GET") -> RawResponse? {
