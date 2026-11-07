@@ -17,6 +17,7 @@ struct ActivityView: View {
     @State private var hoveredID: UUID?
     /// List the slowest requests first instead of the newest.
     @State private var slowestFirst: Bool
+    @FocusState private var listFocused: Bool
 
     /// Text typed in the search field; every word must match a request for it to be listed.
     @State private var query: String
@@ -92,6 +93,7 @@ struct ActivityView: View {
             }
             .animation(.smooth(duration: 0.25), value: selectedID)
         }
+        .defaultFocus($listFocused, true)
         // The details belong to the list that was on screen: close them when the list changes.
         .onChange(of: category) { _, _ in selectedID = nil }
         .onChange(of: filter) { _, _ in selectedID = nil }
@@ -114,18 +116,51 @@ struct ActivityView: View {
             } else {
                 VStack(spacing: 8) {
                     if !hintSeen { detailHint }
-                    if isSnapshot { rows(width: width) } else { ScrollView { rows(width: width) } }
+                    if isSnapshot {
+                        rows(width: width)
+                    } else {
+                        ScrollViewReader { proxy in
+                            ScrollView { rows(width: width) }
+                                .onChange(of: selectedID) { _, id in
+                                    if let id { withAnimation(.snappy(duration: 0.2)) { proxy.scrollTo(id) } }
+                                }
+                        }
+                    }
                 }
             }
         }
+        .focusable()
+        .focused($listFocused)
+        .focusEffectDisabled()
+        .onKeyPress(keys: [.upArrow, .downArrow]) { press in
+            move(press.key == .downArrow ? 1 : -1)
+            return .handled
+        }
         .card()
+    }
+
+    /// Selects the next (+1) or previous (-1) request in the list and shows its details.
+    private func move(_ step: Int) {
+        guard let id = Self.neighbor(of: selectedID, in: lines, step: step) else { return }
+        selectedID = id
+        hintSeen = true
+    }
+
+    /// The request `step` places after (or before) `id` in `lines`, stopping at the ends. With nothing selected, a step
+    /// down gives the first request and a step up the last. Nil when the list is empty.
+    static func neighbor(of id: UUID?, in lines: [LogLine], step: Int) -> UUID? {
+        guard !lines.isEmpty else { return nil }
+        guard let id, let index = lines.firstIndex(where: { $0.id == id }) else {
+            return (step >= 0 ? lines.first : lines.last)?.id
+        }
+        return lines[min(max(index + step, 0), lines.count - 1)].id
     }
 
     /// Tells new users that a request can be opened; goes away for good once one is opened or it is dismissed.
     private var detailHint: some View {
         HStack(spacing: 8) {
             Image(systemName: "cursorarrow.click.2").foregroundStyle(Theme.accent)
-            Text("Click a request to see its headers, payload and response.").font(.callout)
+            Text("Click a request, or use ↑ ↓, to see its headers, payload and response.").font(.callout)
             Spacer(minLength: 8)
             Button { hintSeen = true } label: { Image(systemName: "xmark").font(.system(size: 10, weight: .bold)) }
                 .buttonStyle(.plain).foregroundStyle(.secondary).help("Hide this tip")
@@ -213,6 +248,11 @@ struct ActivityView: View {
             TextField("Search requests", text: $query)
                 .textFieldStyle(.plain)
                 .onExitCommand { query = "" }
+                .onKeyPress(.downArrow) {
+                    listFocused = true
+                    move(1)
+                    return .handled
+                }
             if !query.isEmpty {
                 Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.plain).foregroundStyle(.secondary).help("Clear the search")
@@ -337,7 +377,7 @@ struct ActivityView: View {
                     else { if hoveredID == line.id { hoveredID = nil }; NSCursor.pop() }
                 }
                 .help("Show request details")
-                .onTapGesture { selectedID = isSelected ? nil : line.id; hintSeen = true }
+                .onTapGesture { selectedID = isSelected ? nil : line.id; hintSeen = true; listFocused = true }
                 .accessibilityAddTraits(.isButton)
                 .accessibilityLabel("\(line.entry.method) \(line.entry.path), status \(line.entry.status)")
             }

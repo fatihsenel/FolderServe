@@ -134,7 +134,7 @@ requested that way stay Fetch/XHR. **Clear** removes the activity of the chosen 
 
 ### Request details
 
-Click a request in Activity to open its details (Esc or × closes them): **Headers** (URL, status, time, size, request and
+Click a request in Activity (or move with ↑ ↓, also from the search field with ↓) to open its details (Esc or × closes them): **Headers** (URL, status, time, size, request and
 response headers), **Payload** (request body of proxied calls, JSON pretty-printed, forms decoded), **Preview**
 (images rendered with their size, JSON and text, a sample line for fonts) and **Response** (raw body with Copy).
 

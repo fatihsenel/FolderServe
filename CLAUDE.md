@@ -68,7 +68,8 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
 - There is **no remote**: everything lives in this local repo. Do not assume a push target.
 - Work on a branch (`feat/…`, `fix/…`), commit, then merge into `main` with `--no-ff` and a message like
   `Merge feat/x: what it does`. Commit messages are `feat(ui): …` / `fix(ui): …` with a short body.
-- Adding a new source file means regenerating the project (`xcodegen generate`); the generated `.xcodeproj` is not committed.
+- Adding a new source file, or switching to a branch that has different files, means regenerating the project
+  (`xcodegen generate`); the generated `.xcodeproj` is not committed, and a stale one fails with "Build input file cannot be found".
 
 ## Things worth knowing
 

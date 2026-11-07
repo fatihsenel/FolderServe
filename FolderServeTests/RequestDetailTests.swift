@@ -171,6 +171,21 @@ final class RequestDetailTests: XCTestCase {
         XCTAssertNil(ActivityView.slowestID(in: [timed(nil, "/a"), timed(nil, "/b")]))
     }
 
+    func testArrowKeysMoveThroughTheListAndStopAtTheEnds() {
+        let lines = (0..<3).map { i -> LogLine in
+            LogLine(serverID: UUID(), entry: RequestLogEntry(method: "GET", path: "/\(i)", status: 200, bytes: 1))
+        }
+        let ids = lines.map(\.id)
+        XCTAssertNil(ActivityView.neighbor(of: nil, in: [], step: 1))
+        XCTAssertEqual(ActivityView.neighbor(of: nil, in: lines, step: 1), ids[0], "down with nothing selected: the first")
+        XCTAssertEqual(ActivityView.neighbor(of: nil, in: lines, step: -1), ids[2], "up with nothing selected: the last")
+        XCTAssertEqual(ActivityView.neighbor(of: ids[0], in: lines, step: 1), ids[1])
+        XCTAssertEqual(ActivityView.neighbor(of: ids[1], in: lines, step: -1), ids[0])
+        XCTAssertEqual(ActivityView.neighbor(of: ids[2], in: lines, step: 1), ids[2], "stops at the end")
+        XCTAssertEqual(ActivityView.neighbor(of: ids[0], in: lines, step: -1), ids[0], "stops at the start")
+        XCTAssertEqual(ActivityView.neighbor(of: UUID(), in: lines, step: 1), ids[0], "a selection that is no longer listed starts over")
+    }
+
     func testBrokenJSONIsShownAsIs() {
         XCTAssertEqual(RequestDetailView.displayText(Data("{oops".utf8), contentType: "application/json"), "{oops")
     }
