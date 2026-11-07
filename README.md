@@ -125,5 +125,6 @@ With Reduce Motion on, the dashes, ripples and sparks are replaced by a simple f
 
 ## Removing a folder
 
-The trash button on a card asks for confirmation first. The dialog names the folder, says whether its server will
-stop, which settings (custom name, proxy rules) will be forgotten, and that the files in the folder are never deleted.
+The trash button on a card opens a confirmation over the window: the folder's name, framework and path, then what
+will happen (its server stops, its settings such as a custom name and proxy rules are forgotten) and a reminder that
+the files in the folder are never deleted. Cancel (or Esc, or a click outside) keeps everything; Remove confirms.

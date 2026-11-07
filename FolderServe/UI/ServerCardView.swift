@@ -45,12 +45,6 @@ struct ServerCardView: View {
             }
             .card()
             .justAddedGlow(manager.highlightedIDs.contains(entryID))
-            .confirmationDialog(RemovalPrompt.title(for: entry), isPresented: $confirmingRemove, titleVisibility: .visible) {
-                Button("Remove", role: .destructive) { manager.remove(entryID) }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text(RemovalPrompt.message(for: entry, status: status))
-            }
         }
     }
 
@@ -83,7 +77,7 @@ struct ServerCardView: View {
             }
             Button { open() } label: { Label("Open", systemImage: "safari") }.disabled(!isRunning)
             Button { copyURL() } label: { Label("Copy URL", systemImage: "doc.on.doc") }.disabled(!isRunning)
-            Button(role: .destructive) { confirmingRemove = true } label: { Image(systemName: "trash") }
+            Button(role: .destructive) { manager.requestRemoval(entryID) } label: { Image(systemName: "trash") }
                 .help("Remove this folder")
         }
         .controlSize(.small)
@@ -97,7 +91,6 @@ struct ServerCardView: View {
     @State private var cancelled = false
     @FocusState private var titleFocused: Bool
     @State private var showingProxy = false
-    @State private var confirmingRemove = false
     @State private var outsideClick = OutsideClickMonitor()
 
     @ViewBuilder private func title(for entry: ServerEntry) -> some View {

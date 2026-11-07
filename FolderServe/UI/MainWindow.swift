@@ -3,6 +3,7 @@ import SwiftUI
 struct MainWindow: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.isSnapshotRendering) private var isSnapshot
+    @Environment(ServerManager.self) private var manager
     @State private var selection: SidebarItem
 
     init(initialSelection: SidebarItem = .servers) {
@@ -24,6 +25,16 @@ struct MainWindow: View {
         }
         .background(Theme.background(scheme).ignoresSafeArea())
         .frame(minWidth: 860, minHeight: 560)
+        .overlay {
+            ZStack {
+                if let id = manager.pendingRemoval, let entry = manager.entries.first(where: { $0.id == id }) {
+                    RemoveConfirmationView(entry: entry, status: manager.statuses[id] ?? .stopped, kind: manager.projectKinds[id],
+                                           onCancel: { manager.cancelRemoval() }, onConfirm: { manager.confirmRemoval() })
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.18), value: manager.pendingRemoval)
+        }
         .background { if !isSnapshot { WindowReader { SplashGate.shared.hideIfNeeded($0) } } }
     }
 }

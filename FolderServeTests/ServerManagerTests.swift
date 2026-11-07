@@ -208,6 +208,36 @@ final class ServerManagerTests: XCTestCase {
         XCTAssertTrue(m.highlightedIDs.contains(id), "0.6 s after the first drop but only 0.3 s after the second")
     }
 
+    func testRemovalNeedsConfirmation() throws {
+        let id = manager.add(folder: try folder())
+        manager.requestRemoval(id)
+        XCTAssertEqual(manager.pendingRemoval, id)
+        XCTAssertEqual(manager.entries.count, 1, "nothing is removed until it is confirmed")
+        manager.cancelRemoval()
+        XCTAssertNil(manager.pendingRemoval)
+        XCTAssertEqual(manager.entries.count, 1)
+        manager.requestRemoval(id)
+        manager.confirmRemoval()
+        XCTAssertNil(manager.pendingRemoval)
+        XCTAssertTrue(manager.entries.isEmpty)
+        XCTAssertTrue(store.saved.isEmpty, "the removal is persisted")
+    }
+
+    func testConfirmWithoutARequestDoesNothing() throws {
+        _ = manager.add(folder: try folder())
+        manager.confirmRemoval()
+        XCTAssertEqual(manager.entries.count, 1)
+    }
+
+    func testRequestForUnknownFolderIsIgnoredAndRemovingClearsAPendingRequest() throws {
+        manager.requestRemoval(UUID())
+        XCTAssertNil(manager.pendingRemoval)
+        let id = manager.add(folder: try folder())
+        manager.requestRemoval(id)
+        manager.remove(id)
+        XCTAssertNil(manager.pendingRemoval, "no stale confirmation for a folder that is gone")
+    }
+
     func testAddingSameFolderTwiceReturnsSameID() throws {
         let f = try folder()
         let a = manager.add(folder: f)

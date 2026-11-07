@@ -13,6 +13,8 @@ final class ServerManager {
     private(set) var highlightedIDs: Set<UUID> = []
     /// The most recent of them (the list scrolls to it).
     private(set) var lastHighlightedID: UUID?
+    /// The folder the user asked to remove; the window shows a confirmation for it.
+    private(set) var pendingRemoval: UUID?
     private(set) var log: [LogLine] = []
     /// Global setting: serve dotfiles (e.g. .env) from every folder. Off by default.
     private(set) var serveDotfiles: Bool
@@ -99,7 +101,22 @@ final class ServerManager {
         return (id, url.lastPathComponent.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed))
     }
 
+    /// Asks for confirmation (shown by the main window); nothing is removed until `confirmRemoval()`.
+    func requestRemoval(_ id: UUID) {
+        guard entries.contains(where: { $0.id == id }) else { return }
+        pendingRemoval = id
+    }
+
+    func cancelRemoval() { pendingRemoval = nil }
+
+    func confirmRemoval() {
+        guard let id = pendingRemoval else { return }
+        pendingRemoval = nil
+        remove(id)
+    }
+
     func remove(_ id: UUID) {
+        if pendingRemoval == id { pendingRemoval = nil }
         teardown(id)
         entries.removeAll { $0.id == id }
         statuses[id] = nil
