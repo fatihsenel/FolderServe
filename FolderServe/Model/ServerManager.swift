@@ -58,6 +58,12 @@ final class ServerManager {
         return nil
     }
 
+    /// Addresses other devices can use while the folder is shared on the network (empty otherwise).
+    func lanURLs(for id: UUID) -> [URL] {
+        guard case .running(let port) = statuses[id], entries.first(where: { $0.id == id })?.options.shareOnNetwork == true else { return [] }
+        return LANAddress.ipv4Addresses().compactMap { URL(string: "http://\($0):\(port)/") }
+    }
+
     // MARK: - Adding / removing
 
     @discardableResult
@@ -163,9 +169,14 @@ final class ServerManager {
 
     func setOptions(_ id: UUID, _ options: ServeOptions) {
         guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
+        let listenerChanged = entries[i].options.shareOnNetwork != options.shareOnNetwork
         entries[i].options = options
         servers[id]?.updateOptions(options)
         persist()
+        if listenerChanged, servers[id] != nil {   // loopback ⇄ all interfaces needs a new listener
+            teardown(id)
+            Task { await startNow(id) }
+        }
     }
 
     func setServeDotfiles(_ value: Bool) {

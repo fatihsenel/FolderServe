@@ -68,6 +68,14 @@ Turning it on lets *any* website open in your browser read those files, so leave
 It does not help with errors from calling an API on another origin from your served app: for that, use the
 API proxy below.
 
+## Share on your network
+
+The **Share** switch (off by default) makes a folder reachable from other devices on your Wi-Fi/Ethernet. While it
+is running a **QR** button shows a code to scan with a phone, plus the address (`http://192.168.x.x:<port>/`).
+The server then listens on all interfaces, but only accepts requests addressed to loopback, private IPv4 addresses or
+`.local` names, so DNS-rebinding tricks stay out. Everyone on the network can open the folder and use its proxy
+rules while it is on, hence the warning icon. macOS may ask once to allow incoming connections.
+
 ## API proxy
 
 The **Proxy** button on a folder card forwards requests that start with a prefix to another server, so the

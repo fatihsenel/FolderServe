@@ -63,10 +63,25 @@ struct ServerCardView: View {
                             .accessibilityLabel("Warning: any website can read these files")
                     }
                 }
+                HStack(spacing: 4) {
+                    Toggle("Share", isOn: binding(\.shareOnNetwork, entry)).toggleStyle(GlowToggleStyle()).fixedSize()
+                        .help("Make this folder reachable from other devices on your network (phone, tablet). Shows a QR code when running.")
+                    if entry.options.shareOnNetwork {
+                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11))
+                            .foregroundStyle(Theme.warning)
+                            .help("Sharing is on: anyone on your network can open this folder (and use its proxy rules). Turn it off when you are done.")
+                            .accessibilityLabel("Warning: reachable by everyone on your network")
+                    }
+                }
     }
 
     @ViewBuilder private func buttonsGroup(_ entry: ServerEntry) -> some View {
         Group {
+            if entry.options.shareOnNetwork && isRunning {
+                Button { showingShare = true } label: { Label("QR", systemImage: "qrcode") }
+                    .help("Open this folder on your phone")
+                    .popover(isPresented: $showingShare, arrowEdge: .bottom) { SharePopoverView(entryID: entryID) }
+            }
                     Button { showingProxy = true } label: {
                 let n = entry.options.proxyRules.count
                 Label(n == 0 ? "Proxy" : "Proxy · \(n)", systemImage: "arrow.triangle.swap")
@@ -91,6 +106,7 @@ struct ServerCardView: View {
     @State private var cancelled = false
     @FocusState private var titleFocused: Bool
     @State private var showingProxy = false
+    @State private var showingShare = false
     @State private var outsideClick = OutsideClickMonitor()
 
     @ViewBuilder private func title(for entry: ServerEntry) -> some View {
