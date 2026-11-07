@@ -149,7 +149,12 @@ response headers), **Payload** (request body of proxied calls, JSON pretty-print
   When kept bodies exceed 20 MB, the oldest requests lose their bodies (headers stay).
 - Details are held in memory only: never written to disk, gone on Clear or quit. They are shown **unmasked**
   (`Authorization`, `Cookie`, request bodies such as passwords), as in browser dev tools.
-- Not included yet: audio/video preview, a timing waterfall, WebSocket frames, HAR export.
+- **Export** (button in the Activity header) saves the listed requests, after the server, category and search you chose, as a
+  **HAR** file that Chrome DevTools (Network → import) and other tools open. It contains method, URL, query, headers, status,
+  size and time, request bodies (text) and response bodies where known: captured bodies of proxied calls (marked when cut
+  off) and served files read from disk (up to 2 MB, whole files only; binary content is base64). Headers such as
+  `Authorization` and `Cookie` are included as sent, so treat the file as sensitive.
+- Not included yet: audio/video preview, a timing waterfall, WebSocket frames.
 
 ### Why is a request listed twice?
 
