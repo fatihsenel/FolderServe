@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import FolderServeCore
 @testable import FolderServe
 
 /// Renders the main window to PNG files so the layout can be inspected without a display.
@@ -76,6 +77,24 @@ final class SnapshotTests: XCTestCase {
         let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
         try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-options-popover.png"))
         print("SNAPSHOT:", dir + "snap-options-popover.png")
+    }
+
+    func testRenderRepeatNoteSnapshot() throws {
+        func e(_ t: TimeInterval, dest: String) -> RequestLogEntry {
+            var x = RequestLogEntry(date: Date(timeIntervalSince1970: 1_000 + t), method: "GET", path: "/chunk-HBS753FE.js", status: 200, bytes: 1)
+            x.url = "http://127.0.0.1:8080/chunk-HBS753FE.js"
+            x.requestHeaders = [HTTPHeaderField(name: "sec-fetch-dest", value: dest), HTTPHeaderField(name: "sec-fetch-mode", value: "cors")]
+            return x
+        }
+        let info = try XCTUnwrap(RepeatAnalysis.analyze(e(0.04, dest: "script"), earlier: [e(0, dest: "empty")]))
+        let view = RepeatNote(info: info).padding(16).frame(width: 420)
+            .environment(\.colorScheme, .dark).background(Color(white: 0.16))
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let tiff = try XCTUnwrap(renderer.nsImage?.tiffRepresentation)
+        let png = try XCTUnwrap(NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-repeat-note.png"))
+        print("SNAPSHOT:", dir + "snap-repeat-note.png")
     }
 
     func testRenderMenuBarSnapshots() throws {
