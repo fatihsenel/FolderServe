@@ -493,3 +493,18 @@ final class OptionsSummaryTests: XCTestCase {
         XCTAssertEqual(ServeOptions(spaMode: false, liveReload: true, shareOnNetwork: true).enabledExtrasCount, 0)
     }
 }
+
+final class FinderRevealTests: XCTestCase {
+    func testTargetIsTheFolderWhenItExists() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("reveal-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        XCTAssertEqual(FinderReveal.target(for: dir.path)?.path, dir.path)
+    }
+    func testTargetFallsBackToTheNearestExistingParent() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("reveal-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        XCTAssertEqual(FinderReveal.target(for: dir.appendingPathComponent("gone/deeper").path)?.path, dir.path)
+    }
+}
