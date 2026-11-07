@@ -98,7 +98,9 @@ Example: `/uiapi` → `https://localhost:5003` sends `/uiapi/Account/Login` to
 The Activity tab lists requests with a dev-tools style category: Fetch/XHR, Doc, JS, CSS, Img, Media, Font and
 Other. Click a chip to filter (the chips show counts for the chosen server). The category comes from the
 browser's `Sec-Fetch-Dest` header when it sends one, otherwise from the file extension; proxied API calls
-are Fetch/XHR. **Clear** removes the activity of the chosen server, or of all servers when "All servers" is selected.
+are Fetch/XHR. Browsers also send `Sec-Fetch-Dest: empty` for preloads (e.g. `modulepreload` chunks), so plain
+`.js`, `.css`, image, font and media files are always grouped by their type; `.json` and extensionless paths
+requested that way stay Fetch/XHR. **Clear** removes the activity of the chosen server, or of all servers when "All servers" is selected.
 
 ### Request details
 

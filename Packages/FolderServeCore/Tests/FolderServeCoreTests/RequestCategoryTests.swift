@@ -20,13 +20,32 @@ final class RequestCategoryTests: XCTestCase {
     func testBrowserSecFetchDestWinsOverExtension() {
         XCTAssertEqual(c("/users/42", dest: "empty"), .fetch, "extensionless fetch() is not a document")
         XCTAssertEqual(c("/users/42", dest: "document"), .doc)
-        XCTAssertEqual(c("/data.js", dest: "empty"), .fetch)
+        XCTAssertEqual(c("/data.json", dest: "empty"), .fetch)
+        XCTAssertEqual(c("/uiapi/Account/Login", dest: "empty"), .fetch)
         XCTAssertEqual(c("/x", dest: "script"), .js); XCTAssertEqual(c("/x", dest: "worker"), .js)
         XCTAssertEqual(c("/x", dest: "style"), .css)
         XCTAssertEqual(c("/x", dest: "image"), .img)
         XCTAssertEqual(c("/x", dest: "font"), .font)
         XCTAssertEqual(c("/x", dest: "video"), .media); XCTAssertEqual(c("/x", dest: "audio"), .media)
         XCTAssertEqual(c("/x", dest: "iframe"), .doc)
+    }
+
+    func testStaticFilesAreGroupedByTypeEvenWhenTheBrowserSaysEmpty() {
+        // e.g. <link rel="modulepreload"> chunks and prefetches arrive with Sec-Fetch-Dest: empty
+        XCTAssertEqual(c("/chunk-HBS753FE.js", dest: "empty"), .js)
+        XCTAssertEqual(c("/main.mjs", dest: "empty"), .js)
+        XCTAssertEqual(c("/styles-EYGKVX7E.css", dest: "empty"), .css)
+        XCTAssertEqual(c("/logo.png", dest: "empty"), .img)
+        XCTAssertEqual(c("/f.woff2", dest: "empty"), .font)
+        XCTAssertEqual(c("/v.mp4", dest: "empty"), .media)
+    }
+
+    func testRealAPICallsStayFetchWhenTheBrowserSaysEmpty() {
+        XCTAssertEqual(c("/uiapi/photo.png", dest: "empty", proxied: true), .fetch)
+        XCTAssertEqual(c("/uiapi/bundle.js", dest: "empty", proxied: true), .fetch)
+        XCTAssertEqual(c("/assets/config.json", dest: "empty"), .fetch)
+        XCTAssertEqual(c("/index.html", dest: "empty"), .fetch)
+        XCTAssertEqual(c("/api/users/42", dest: "empty"), .fetch)
     }
 
     func testProxiedCallsAreFetchUnlessTheBrowserSaysOtherwise() {
