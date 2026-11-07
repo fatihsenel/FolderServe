@@ -56,8 +56,9 @@ struct ActivityView: View {
             GeometryReader { geo in
                 let selected = selectedLine
                 if geo.size.width >= 760 {
+                    let listWidth = selected == nil ? geo.size.width : geo.size.width - 16 - min(480, geo.size.width * 0.46)
                     HStack(alignment: .top, spacing: 16) {
-                        listCard.frame(minWidth: 340, maxHeight: .infinity, alignment: .top)
+                        listCard(width: listWidth).frame(minWidth: 340, maxHeight: .infinity, alignment: .top)
                         if let selected {
                             detail(selected).frame(width: min(480, geo.size.width * 0.46))
                                 .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -65,7 +66,7 @@ struct ActivityView: View {
                     }
                 } else {
                     ZStack(alignment: .topLeading) {
-                        listCard.frame(maxHeight: .infinity, alignment: .top)
+                        listCard(width: geo.size.width).frame(maxHeight: .infinity, alignment: .top)
                         if let selected { detail(selected).transition(.opacity) }
                     }
                 }
@@ -78,7 +79,7 @@ struct ActivityView: View {
         .padding(28)
     }
 
-    private var listCard: some View {
+    private func listCard(width: CGFloat) -> some View {
         Group {
             if lines.isEmpty {
                 VStack(spacing: 8) {
@@ -92,7 +93,7 @@ struct ActivityView: View {
             } else {
                 VStack(spacing: 8) {
                     if !hintSeen { detailHint }
-                    if isSnapshot { rows } else { ScrollView { rows } }
+                    if isSnapshot { rows(width: width) } else { ScrollView { rows(width: width) } }
                 }
             }
         }
@@ -166,29 +167,41 @@ struct ActivityView: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private var rows: some View {
-        LazyVStack(spacing: 0) {
+    /// What fits in a list of this width: the full row, one without clock time and type badge, or the bare minimum.
+    private enum RowDetail { case full, medium, compact }
+    private func rowDetail(for width: CGFloat) -> RowDetail {
+        let usable = width - 40   // the card's padding
+        return usable >= 620 ? .full : usable >= 400 ? .medium : .compact
+    }
+
+    private func rows(width: CGFloat) -> some View {
+        let detail = rowDetail(for: width)
+        return LazyVStack(spacing: 0) {
             ForEach(lines.prefix(200)) { line in
                 let isSelected = line.id == selectedID
                 HStack(spacing: 12) {
-                    Text(line.entry.date, format: .dateTime.hour().minute().second())
-                        .foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
-                    Text(line.entry.category.label).font(.system(size: 10, weight: .semibold))
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(.white.opacity(0.1)))
-                        .frame(width: 70, alignment: .leading)
+                    if detail == .full {
+                        Text(line.entry.date, format: .dateTime.hour().minute().second())
+                            .lineLimit(1).foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
+                        Text(line.entry.category.label).font(.system(size: 10, weight: .semibold))
+                            .lineLimit(1).padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Capsule().fill(.white.opacity(0.1)))
+                            .frame(width: 70, alignment: .leading)
+                    }
                     Text(line.entry.method).frame(width: 48, alignment: .leading)
                     Text(String(line.entry.status))
                         .foregroundStyle(color(for: line.entry.status)).frame(width: 40, alignment: .leading)
-                    Text(line.entry.path).lineLimit(1).truncationMode(.middle)
+                    Text(line.entry.path).lineLimit(1).truncationMode(.middle).frame(minWidth: 60, alignment: .leading)
                     if let note = line.entry.note {
                         Text(note).foregroundStyle(Theme.accent).lineLimit(1).truncationMode(.middle)
                     }
                     Spacer(minLength: 8)
-                    Text(ByteCountFormatter.string(fromByteCount: line.entry.bytes, countStyle: .file))
-                        .foregroundStyle(.secondary)
+                    if detail != .compact {
+                        Text(ByteCountFormatter.string(fromByteCount: line.entry.bytes, countStyle: .file))
+                            .lineLimit(1).fixedSize().foregroundStyle(.secondary)
+                    }
                     Text(Self.durationText(line.entry.durationMs))
-                        .foregroundStyle(Self.durationColor(line.entry.durationMs)).frame(width: 64, alignment: .trailing)
+                        .lineLimit(1).foregroundStyle(Self.durationColor(line.entry.durationMs)).frame(width: 64, alignment: .trailing)
                         .help("Time the server took to answer")
                     Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold))
                         .foregroundStyle(.secondary).opacity(isSelected || hoveredID == line.id ? 1 : 0.45)
