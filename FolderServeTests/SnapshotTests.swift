@@ -74,6 +74,24 @@ final class SnapshotTests: XCTestCase {
         try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-activity-hint.png"))
     }
 
+    /// The list beside an open detail panel is narrow: its rows must not wrap or lose the path.
+    func testRenderActivityListBesideDetailSnapshot() throws {
+        let manager = PreviewData.manager(populated: true)
+        let selected = manager.logLines(for: nil).dropFirst(3).first?.id
+        for width in [1000.0, 760.0] {
+            let view = ActivityView(initialSelection: selected)
+                .padding(24)
+                .environment(manager)
+                .environment(\.colorScheme, .dark)
+                .environment(\.isSnapshotRendering, true)
+                .frame(width: width, height: 640).background(Theme.background(.dark))
+            let renderer = ImageRenderer(content: view); renderer.scale = 2
+            let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+            let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+            try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-activity-beside-detail-\(Int(width)).png"))
+        }
+    }
+
     func testRenderMainWindowSnapshots() throws {
         try render("empty-dark", populated: false, scheme: .dark)
         try render("populated-dark", populated: true, scheme: .dark)
