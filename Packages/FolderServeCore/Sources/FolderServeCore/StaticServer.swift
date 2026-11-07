@@ -20,6 +20,8 @@ public final class StaticServer: @unchecked Sendable {
     private var connHeaders: [ObjectIdentifier: [String: String]] = [:]
     /// The request being answered on a connection (and when it began), for the request log.
     private var connRequest: [ObjectIdentifier: (req: HTTPRequest, began: Date)] = [:]
+    /// Open WebSocket tunnels, kept alive until either side hangs up.
+    private var tunnels: [ObjectIdentifier: WebSocketTunnel] = [:]
     private var _onRequest: (@Sendable (RequestLogEntry) -> Void)?
     private let hub = ReloadHub()
     /// Seconds to wait for a proxied API before answering 504 (tests lower this).
@@ -100,6 +102,8 @@ public final class StaticServer: @unchecked Sendable {
             pingTimer?.cancel()
             pingTimer = nil
             hub.removeAll()
+            for t in tunnels.values { t.close() }
+            tunnels.removeAll()
             for c in connections.values { c.cancel() }
             connections.removeAll()
         }
@@ -223,6 +227,21 @@ public final class StaticServer: @unchecked Sendable {
         if !corsOn && !ProxyRule.isSameOriginRequest(headers: req.headers) {
             sendPage(conn, status: 403, message: "Cross-origin request blocked. Turn on CORS for this folder if another origin needs the API.",
                      method: req.method, path: req.path, head: isHead)
+            return
+        }
+        if WebSocketTunnel.isUpgrade(req) {
+            let id = ObjectIdentifier(conn)
+            guard let tunnel = WebSocketTunnel(client: conn, req: req, rule: rule, queue: queue,
+                                               log: { [weak self] in self?.lockedLog($0) },
+                                               onClose: { [weak self] in self?.queue.async { self?.tunnels[id] = nil } }) else {
+                sendPage(conn, status: 502, message: "Invalid proxy rule for \(rule.normalizedPrefix)",
+                         method: req.method, path: req.path, head: false)
+                return
+            }
+            tunnels[id] = tunnel
+            tunnel.start(buffered: buffered) { [weak self] status, message in
+                self?.sendPage(conn, status: status, message: message, method: req.method, path: req.path, head: false)
+            }
             return
         }
         if let te = req.headers["transfer-encoding"], !te.lowercased().contains("identity") {
