@@ -8,13 +8,16 @@ public struct RequestLogEntry: Sendable, Equatable {
     public var bytes: Int64
     /// e.g. "→ https://localhost:5003" for proxied requests.
     public var note: String?
+    public var category: RequestCategory
 
-    public init(date: Date = Date(), method: String, path: String, status: Int, bytes: Int64, note: String? = nil) {
+    public init(date: Date = Date(), method: String, path: String, status: Int, bytes: Int64, note: String? = nil,
+                category: RequestCategory = .other) {
         self.date = date
         self.method = method
         self.path = path
         self.status = status
         self.bytes = bytes
         self.note = note
+        self.category = category
     }
 }

@@ -142,6 +142,11 @@ final class ServerManager {
         return lines.reversed()
     }
 
+    /// Removes logged requests: one server's, or everything when `serverID` is nil.
+    func clearLog(for serverID: UUID?) {
+        if let serverID { log.removeAll { $0.serverID == serverID } } else { log.removeAll() }
+    }
+
     /// Replaces the folder's API proxy rules (applied to a running server immediately).
     func setProxyRules(_ id: UUID, _ rules: [ProxyRule]) {
         guard let i = entries.firstIndex(where: { $0.id == id }) else { return }

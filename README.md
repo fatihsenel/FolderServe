@@ -92,3 +92,10 @@ Example: `/uiapi` → `https://localhost:5003` sends `/uiapi/Account/Login` to
   folder, so a web page cannot drive your backend through the proxy.
 - Not supported: WebSockets, chunked request bodies, HTTP/2 to the browser.
 - The app allows plain-http targets (`NSAllowsArbitraryLoads`), because the target is whatever you configure.
+
+## Activity
+
+The Activity tab lists requests with a dev-tools style category: Fetch/XHR, Doc, JS, CSS, Img, Media, Font and
+Other. Click a chip to filter (the chips show counts for the chosen server). The category comes from the
+browser's `Sec-Fetch-Dest` header when it sends one, otherwise from the file extension; proxied API calls
+are Fetch/XHR. **Clear** removes the activity of the chosen server, or of all servers when "All servers" is selected.

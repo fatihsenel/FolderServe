@@ -132,6 +132,21 @@ final class ServerManagerTests: XCTestCase {
         XCTAssertEqual(manager.entries.first { $0.id == id }?.folderPath, f.standardizedFileURL.path)
     }
 
+    func testClearLogRemovesOneServersLinesOrEverything() async throws {
+        let m = ServerManager(store: InMemoryStore(), defaultStartPort: startPort, minSearchDuration: 0)
+        defer { m.stopAll() }
+        let a = m.add(folder: try folder("a")), b = m.add(folder: try folder("b"))
+        await expectEventually { m.url(for: a) != nil && m.url(for: b) != nil }
+        _ = try await fetch(try XCTUnwrap(m.url(for: a)?.port.map { UInt16($0) }), "/x")
+        _ = try await fetch(try XCTUnwrap(m.url(for: b)?.port.map { UInt16($0) }), "/y")
+        await expectEventually { !m.logLines(for: a).isEmpty && !m.logLines(for: b).isEmpty }
+        m.clearLog(for: a)
+        XCTAssertTrue(m.logLines(for: a).isEmpty)
+        XCTAssertFalse(m.logLines(for: b).isEmpty)
+        m.clearLog(for: nil)
+        XCTAssertTrue(m.logLines(for: nil).isEmpty)
+    }
+
     func testAddingSameFolderTwiceReturnsSameID() throws {
         let f = try folder()
         let a = manager.add(folder: f)
