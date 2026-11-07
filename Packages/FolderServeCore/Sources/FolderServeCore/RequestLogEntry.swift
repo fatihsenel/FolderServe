@@ -62,6 +62,13 @@ public struct RequestLogEntry: Sendable, Equatable, Identifiable {
     /// Bytes of captured bodies held by this entry.
     public var capturedBodyBytes: Int { (requestBody?.count ?? 0) + (responseBody?.count ?? 0) }
 
+    /// Not made by a page: no referer, `Sec-Fetch-Site: none` and an empty destination. That is how browser DevTools
+    /// (re-fetching a file to show it) or an extension asks. Typed addresses are not included (their destination is "document").
+    public var isDetached: Bool {
+        func value(_ name: String) -> String? { requestHeaders.first { $0.name.lowercased() == name }?.value.lowercased() }
+        return value("sec-fetch-site") == "none" && value("sec-fetch-dest") == "empty" && value("referer") == nil
+    }
+
     public var responseContentType: String? {
         responseHeaders.first { $0.name.lowercased() == "content-type" }?.value
     }

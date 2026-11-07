@@ -79,6 +79,21 @@ final class SnapshotTests: XCTestCase {
         print("SNAPSHOT:", dir + "snap-options-popover.png")
     }
 
+    func testRenderActivityWithHiddenDetachedRequests() throws {
+        let manager = PreviewData.manager(populated: true)
+        let id = try XCTUnwrap(manager.entries.first?.id)
+        var e = RequestLogEntry(method: "GET", path: "/main-55TTQ7PG.js", status: 200, bytes: 100, category: .js)
+        e.requestHeaders = [HTTPHeaderField(name: "sec-fetch-site", value: "none"), HTTPHeaderField(name: "sec-fetch-dest", value: "empty")]
+        manager.append(LogLine(serverID: id, entry: e))
+        let view = ActivityView().environment(manager).environment(\.colorScheme, .dark)
+            .environment(\.isSnapshotRendering, true).frame(width: 900, height: 420).background(Color(white: 0.14))
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let tiff = try XCTUnwrap(renderer.nsImage?.tiffRepresentation)
+        let png = try XCTUnwrap(NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-activity-detached.png"))
+    }
+
     func testRenderRepeatNoteSnapshot() throws {
         func e(_ t: TimeInterval, dest: String) -> RequestLogEntry {
             var x = RequestLogEntry(date: Date(timeIntervalSince1970: 1_000 + t), method: "GET", path: "/chunk-HBS753FE.js", status: 200, bytes: 1)

@@ -48,6 +48,14 @@ final class RepeatAnalysisTests: XCTestCase {
         XCTAssertEqual(Set(info.differences.map(\.header)), ["sec-fetch-dest", "sec-fetch-site", "referer"])
     }
 
+    func testDetachedRequestsAreOnlyThoseWithoutAPage() {
+        XCTAssertTrue(entry(at: 0, ["sec-fetch-site": "none", "sec-fetch-dest": "empty"]).isDetached)
+        XCTAssertFalse(entry(at: 0, ["sec-fetch-site": "none", "sec-fetch-dest": "document"]).isDetached, "a typed address is a real navigation")
+        XCTAssertFalse(entry(at: 0, ["sec-fetch-site": "none", "sec-fetch-dest": "empty", "referer": "http://x/"]).isDetached)
+        XCTAssertFalse(entry(at: 0, ["sec-fetch-site": "same-origin", "sec-fetch-dest": "script"]).isDetached)
+        XCTAssertFalse(entry().isDetached, "requests from curl or older browsers carry no fetch metadata")
+    }
+
     func testPrefetchPurposeWins() throws {
         let info = try XCTUnwrap(RepeatAnalysis.analyze(entry(at: 0.1), earlier: [entry(at: 0, ["sec-purpose": "prefetch"])]))
         XCTAssertTrue(info.headline.contains("prefetch"))
