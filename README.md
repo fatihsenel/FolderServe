@@ -43,6 +43,7 @@ Rendered from the app's built-in sample data (no real folders or requests).
 ## Features
 
 - Drop a folder on the window, the Dock icon or the menu bar popover — it starts serving immediately. **⌘O** (File ▸ Add Folder…) opens the folder picker.
+- **Recent folders**: a folder you remove from the list shows up under *Recent folders* in the menu bar popover. One click serves it again with its old name, port and options and opens it in your browser (the last six are kept; *Clear* forgets them all).
   Also works from Terminal: `open -a FolderServe ~/my-site`.
 - Many folders at once, each on its own port (starts at 8080, next free port if busy).
 - **Live reload**: a small script is injected into HTML pages; editing a file refreshes open tabs.

@@ -14,6 +14,11 @@ struct JSONFileStore: ServerStoring {
         return JSONFileStore(url: dir.appendingPathComponent("servers.json"))
     }
 
+    /// Folders that were removed from the list but can be served again from the menu bar.
+    static var recents: JSONFileStore {
+        JSONFileStore(url: `default`.url.deletingLastPathComponent().appendingPathComponent("recents.json"))
+    }
+
     func load() -> [ServerEntry] {
         guard let data = try? Data(contentsOf: url) else { return [] }
         return (try? JSONDecoder().decode([ServerEntry].self, from: data)) ?? []
