@@ -44,6 +44,9 @@ public enum RepeatAnalysis {
     }
 
     private static func headline(gap: Int, a: [String: String], b: [String: String], diffs: [RepeatInfo.Difference]) -> String {
+        if a[RequestLogEntry.replayHeader] != nil || b[RequestLogEntry.replayHeader] != nil {
+            return "One of the two was replayed from the detail panel (Replay), so the repeat is expected."
+        }
         let purposes = [a["sec-purpose"], a["purpose"], b["sec-purpose"], b["purpose"]].compactMap { $0?.lowercased() }
         if purposes.contains(where: { $0.contains("prefetch") || $0.contains("prerender") }) {
             return "One of the two is a browser prefetch or prerender; the other is the real load."

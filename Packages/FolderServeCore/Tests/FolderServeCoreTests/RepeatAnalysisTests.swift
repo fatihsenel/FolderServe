@@ -72,4 +72,14 @@ final class RepeatAnalysisTests: XCTestCase {
         XCTAssertNil(RepeatAnalysis.analyze(q, earlier: [entry()]))
         XCTAssertNil(RepeatAnalysis.analyze(entry(method: "POST"), earlier: [entry()]))
     }
+
+    func testAReplayIsRecognised() throws {
+        let h = ["sec-fetch-dest": "empty"]
+        var replayed = entry(at: 5, h)
+        replayed.requestHeaders.append(HTTPHeaderField(name: "X-FolderServe-Replay", value: "1"))
+        XCTAssertTrue(replayed.isReplay)
+        XCTAssertFalse(entry(at: 0, h).isReplay)
+        let info = try XCTUnwrap(RepeatAnalysis.analyze(replayed, earlier: [entry(at: 0, h)]))
+        XCTAssertTrue(info.headline.contains("replayed"), info.headline)
+    }
 }

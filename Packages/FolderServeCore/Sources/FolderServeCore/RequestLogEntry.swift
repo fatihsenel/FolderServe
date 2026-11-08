@@ -45,6 +45,12 @@ public struct RequestLogEntry: Sendable, Equatable, Identifiable {
     /// Set when the app dropped the bodies to stay within its memory budget.
     public var bodiesDropped = false
 
+    /// Added by the app's Replay button so a replayed request can be told apart (and is not passed on to a proxy target).
+    public static let replayHeader = "x-folderserve-replay"
+
+    /// Sent again from the detail panel (Replay) rather than by a browser.
+    public var isReplay: Bool { requestHeaders.contains { $0.name.lowercased() == Self.replayHeader } }
+
     public static let maxRequestBodyCapture = 32 * 1024
     public static let maxResponseBodyCapture = 128 * 1024
 

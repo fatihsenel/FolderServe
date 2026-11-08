@@ -29,6 +29,7 @@ struct RequestDetailView: View {
     @State private var tab: DetailTab
     @State private var content: LoadedContent?
     @State private var copiedCurl = false
+    @State private var replay: ReplayState = .idle
 
     init(line: LogLine, initialTab: DetailTab = .headers, preloaded: LoadedContent? = nil, onClose: @escaping () -> Void) {
         self.line = line
@@ -93,18 +94,65 @@ struct RequestDetailView: View {
             Text(entry.url.isEmpty ? entry.path : entry.url)
                 .font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
                 .lineLimit(3).truncationMode(.middle)
-            Button {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(Self.curlCommand(for: entry), forType: .string)
-                copiedCurl = true
-                Task { try? await Task.sleep(for: .seconds(1.6)); copiedCurl = false }
-            } label: {
-                Label(copiedCurl ? "Copied" : "Copy as cURL", systemImage: copiedCurl ? "checkmark" : "terminal")
+            HStack(spacing: 16) {
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(Self.curlCommand(for: entry), forType: .string)
+                    copiedCurl = true
+                    Task { try? await Task.sleep(for: .seconds(1.6)); copiedCurl = false }
+                } label: {
+                    Label(copiedCurl ? "Copied" : "Copy as cURL", systemImage: copiedCurl ? "checkmark" : "terminal")
+                }
+                .buttonStyle(.plain).font(.caption).foregroundStyle(copiedCurl ? Theme.running : .secondary)
+                .help("Copy a curl command that repeats this request, with its headers and body")
+                replayButton
+                if entry.isReplay {
+                    Text("Replayed").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                        .padding(.horizontal, 7).padding(.vertical, 2).background(Capsule().fill(.white.opacity(0.1)))
+                        .help("This request was sent from FolderServe's Replay button, not by a browser")
+                }
             }
-            .buttonStyle(.plain).font(.caption).foregroundStyle(copiedCurl ? Theme.running : .secondary)
-            .help("Copy a curl command that repeats this request, with its headers and body")
+            if case .failed(let message) = replay {
+                Label(message, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(Theme.warning)
+            }
             if let info = repeatInfo { RepeatNote(info: info) }
             if let load = pageLoad { PageLoadNote(load: load) }
+        }
+    }
+
+    enum ReplayState: Equatable {
+        case idle, sending, done(Int), failed(String)
+    }
+
+    /// Sends this request again to the server (same method, path, headers and body) and logs the new answer.
+    private var replayButton: some View {
+        let base = manager.url(for: line.serverID)
+        return Button { startReplay(base: base) } label: {
+            switch replay {
+            case .sending: Label("Replaying…", systemImage: "arrow.clockwise")
+            case .done(let status): Label("Replayed · \(status)", systemImage: "checkmark")
+            default: Label("Replay", systemImage: "arrow.clockwise")
+            }
+        }
+        .buttonStyle(.plain).font(.caption)
+        .foregroundStyle({ if case .done = replay { return Theme.running } else { return Color.secondary } }())
+        .disabled(base == nil || replay == .sending)
+        .help(base == nil ? "Start the server to replay this request" : "Send this request again to the server, with the same headers and body")
+        .onChange(of: line.id) { _, _ in replay = .idle }
+    }
+
+    private func startReplay(base: URL?) {
+        switch RequestReplay.urlRequest(for: entry, base: base) {
+        case .failure(let failure):
+            replay = .failed(failure.message)
+        case .success(let request):
+            replay = .sending
+            Task {
+                switch await RequestReplay.send(request) {
+                case .success(let status): replay = .done(status)
+                case .failure(let error): replay = .failed("Could not send it: \(error.message)")
+                }
+            }
         }
     }
 
@@ -382,7 +430,7 @@ struct RequestDetailView: View {
         var parts = ["curl " + quote(url)]
         if entry.method == "HEAD" { parts.append("--head") } else if entry.method != "GET" { parts.append("-X " + entry.method) }
 
-        let skipped: Set<String> = ["host", "content-length", "connection", "keep-alive"]
+        let skipped: Set<String> = ["host", "content-length", "connection", "keep-alive", RequestLogEntry.replayHeader]
         var compressed = false
         for h in entry.requestHeaders where !skipped.contains(h.name.lowercased()) && !h.name.hasPrefix(":") {
             if h.name.lowercased() == "accept-encoding" { compressed = true; continue }   // --compressed asks for it and decodes
