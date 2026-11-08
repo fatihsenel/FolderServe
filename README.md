@@ -207,6 +207,21 @@ instead of `127.0.0.1:8080`. Browsers and curl send every `*.localhost` name to 
 HTTPS certificate covers `*.localhost` too. The numeric address keeps working. Only names ending in `.localhost` are accepted, which keeps
 DNS-rebinding hosts like `my-site.localhost.evil.com` out. Cookies are stored per host name, so two folders with the same name on different ports share them.
 
+## Releasing
+
+`scripts/release.sh` builds a Release archive, signs it with a **Developer ID Application** certificate, notarizes it with Apple, staples the
+ticket and zips it into `build/release/FolderServe-<version>.zip` (the version is `MARKETING_VERSION` in `project.yml`). With `--publish` it
+also creates a public GitHub release with the zip and its SHA-256.
+
+One-time setup, as the team's **Account Holder** (team `XC7ZHWDHCA`):
+
+1. Create the certificate: Xcode ▸ Settings ▸ Accounts ▸ Manage Certificates ▸ + ▸ Developer ID Application. Back up the key (Keychain Access ▸ export as `.p12`).
+2. Create an app-specific password at appleid.apple.com, then store a notarization profile (it asks for the password):
+   `xcrun notarytool store-credentials "folderserve-notary" --apple-id <your Apple ID> --team-id XC7ZHWDHCA`
+3. Run `scripts/release.sh`. `TEAM_ID` and `NOTARY_PROFILE` can be overridden in the environment.
+
+The script stops with a message if the certificate or the notarization profile is missing.
+
 ## Dropping folders
 
 While you drag a folder over the window the list dims and a landing pad appears ("Drop to start serving"). On drop
