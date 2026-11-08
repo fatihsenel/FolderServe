@@ -3,6 +3,20 @@
 A native macOS app (window + menu bar) that serves any folder over HTTP on localhost — for previewing
 static sites and single page apps, with live reload.
 
+## Screenshots
+
+Rendered from the app's built-in sample data (no real folders or requests).
+
+| Servers | Menu bar |
+|---|---|
+| ![Empty Servers screen with Add Folder and Choose Folder buttons](docs/screenshots/servers-empty.png) | ![Menu bar window listing five servers](docs/screenshots/menu-bar.png) |
+
+| Activity | Options |
+|---|---|
+| ![Activity list with a slowest-request marker and time column](docs/screenshots/activity-list.png) | ![Options popover: SPA mode, Cache, HTTPS, CORS](docs/screenshots/options.png) |
+
+![Foldable, coloured JSON tree](docs/screenshots/json-tree.png)
+
 ## Features
 
 - Drop a folder on the window, the Dock icon or the menu bar popover — it starts serving immediately. **⌘O** (File ▸ Add Folder…) opens the folder picker.
