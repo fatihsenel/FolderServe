@@ -55,7 +55,7 @@ Rendered from the app's built-in sample data (no real folders or requests).
   Also works from Terminal: `open -a FolderServe ~/my-site`.
 - **Recent folders**: a folder you remove from the list shows up under *Recent folders* in the menu bar popover. One click serves it again with its old name, port and options and opens it in your browser (the last six are kept; *Clear* forgets them all).
 - Many folders at once, each on its own port (starts at 8080, next free port if busy).
-- **Live reload**: a small script is injected into HTML pages; editing a file refreshes open tabs.
+- **Live reload**: a small script is injected into HTML pages; editing a file refreshes open tabs. When only `.css` files changed, the page swaps in the fresh stylesheets without reloading, so scroll position, form input and open menus stay.
 - **SPA mode**: unknown extension-less paths return `index.html` (React Router, Vue Router, …).
   Missing assets (`/missing.js`) still return 404.
 - Range requests (video/audio seeking), directory listings, correct MIME types, files streamed in chunks.

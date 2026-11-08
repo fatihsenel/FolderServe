@@ -57,4 +57,17 @@ final class FolderWatcherTests: XCTestCase {
         try await Task.sleep(nanoseconds: 800_000_000)
         XCTAssertEqual(count.value, 0)
     }
+
+    func testCallbackReceivesTheChangedPathsOfTheBurst() async throws {
+        let seen = LockedBox([String]())
+        watcher = FolderWatcher(root: dir, debounce: 0.1) { (paths: [String]) in seen.value += paths }
+        watcher?.start()
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        seen.value = []
+        try "x".write(to: dir.appendingPathComponent("nested/style.css"), atomically: false, encoding: .utf8)
+        try "x".write(to: dir.appendingPathComponent(".git/index"), atomically: false, encoding: .utf8)
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        XCTAssertTrue(seen.value.contains { $0.hasSuffix("/nested/style.css") }, "\(seen.value)")
+        XCTAssertFalse(seen.value.contains { $0.contains("/.git") })
+    }
 }

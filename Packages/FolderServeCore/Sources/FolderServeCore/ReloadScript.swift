@@ -1,7 +1,12 @@
 import Foundation
 
 public enum ReloadScript {
-    static let tag = Data("<script>new EventSource('/__reload').onmessage=()=>location.reload()</script>".utf8)
+    /// "css": swap the page's linked same-origin stylesheets for fresh copies (the new one is added first and the old one removed once it
+    /// has loaded, so nothing flashes); anything else: reload the page. Older pages that still run the one-line script reload on both.
+    static let source = "new EventSource('/__reload').onmessage=e=>{if(e.data!=='css')return location.reload();"
+        + "document.querySelectorAll('link[rel~=stylesheet]').forEach(l=>{var u=new URL(l.href,location.href);if(u.origin!==location.origin)return;"
+        + "u.searchParams.set('_fs',Date.now());var n=l.cloneNode();n.href=u.href;n.onload=()=>l.remove();n.onerror=()=>n.remove();l.after(n)})}"
+    static let tag = Data("<script>\(source)</script>".utf8)
     private static let closingBody = Array("</body>".utf8)
 
     /// Inserts the reload script before the last (case-insensitive) `</body>`, or appends it.
