@@ -261,6 +261,11 @@ The trash button on a card opens a confirmation over the window: the folder's na
 will happen (its server stops, its settings such as a custom name and proxy rules are forgotten) and a reminder that
 the files in the folder are never deleted. Cancel (or Esc, or a click outside) keeps everything; Remove confirms.
 
+## Contributing and security
+
+Bug reports, ideas and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Please report security problems privately, as described in
+[SECURITY.md](SECURITY.md).
+
 ## License
 
 [MIT](LICENSE)
