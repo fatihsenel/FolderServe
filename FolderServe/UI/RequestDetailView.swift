@@ -46,8 +46,20 @@ struct RequestDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-            Picker("", selection: $tab) { ForEach(tabs) { Text($0.rawValue).tag($0) } }
-                .pickerStyle(.segmented).labelsHidden()
+            if isSnapshot {
+                // ImageRenderer draws a segmented Picker as a yellow bar, so screenshots get a drawn tab bar.
+                HStack(spacing: 2) {
+                    ForEach(tabs) { t in
+                        Text(t.rawValue).font(.system(size: 13, weight: t == tab ? .semibold : .regular))
+                            .frame(maxWidth: .infinity).padding(.vertical, 4)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(t == tab ? Color.white.opacity(0.22) : .clear))
+                    }
+                }
+                .padding(2).background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.08)))
+            } else {
+                Picker("", selection: $tab) { ForEach(tabs) { Text($0.rawValue).tag($0) } }
+                    .pickerStyle(.segmented).labelsHidden()
+            }
             Group {
                 if isSnapshot { tabBody } else { ScrollView { tabBody.frame(maxWidth: .infinity, alignment: .leading) } }
             }

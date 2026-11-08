@@ -249,7 +249,7 @@ final class RequestDetailTests: XCTestCase {
         for (name, width) in [("wide", 1180.0), ("narrow", 640.0)] {
             let view = ActivityView(initialSelection: line.id)
                 .environment(manager).environment(\.colorScheme, .dark).environment(\.isSnapshotRendering, true)
-                .frame(width: width, height: 640).background(Theme.background(.dark))
+                .frame(width: width, height: 780).background(Theme.background(.dark))
             let renderer = ImageRenderer(content: view); renderer.scale = 2
             let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
             let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
