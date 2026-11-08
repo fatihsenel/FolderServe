@@ -8,11 +8,25 @@ public enum ReloadKind: Equatable, Sendable {
     /// Only stylesheets changed: pages re-fetch their linked stylesheets and keep their state (scroll position, forms, open menus).
     case styles
 
-    /// `.styles` when every changed path belongs to a stylesheet, otherwise `.full` (also for an empty list, and for anything we cannot tell).
-    public static func classify(paths: [String]) -> ReloadKind {
-        guard !paths.isEmpty, paths.allSatisfy(isStylesheetFile) else { return .full }
-        return .styles
+    /// `.styles` when the burst only touched stylesheets, otherwise `.full` (also for an empty list, and for anything we cannot tell).
+    ///
+    /// Most editors save by writing a temporary file next to the original and renaming it over it, so one save reports two paths. The
+    /// temporary file's name depends on the editor and the macOS version (`a.css.sb-1f2e`, `.dat.nosync1234.AbCdEf`, `a.css~`, `4913`), so a path
+    /// that no longer exists and does not look like a page or script is ignored. At least one stylesheet must still be there.
+    /// `exists` is injectable for tests.
+    public static func classify(paths: [String], exists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }) -> ReloadKind {
+        var sawStylesheet = false
+        for path in paths {
+            if isStylesheetFile(path) {
+                if exists(path) { sawStylesheet = true }
+            } else if exists(path) || isCode(path) {
+                return .full
+            }
+        }
+        return sawStylesheet ? .styles : .full
     }
+
+    private static func isCode(_ path: String) -> Bool { codeExtensions.contains(URL(fileURLWithPath: path).pathExtension.lowercased()) }
 
     /// A `.css` file, or the temporary / backup file an editor writes next to it while saving (`a.css.sb-1f2e`, `a.css~`, `.a.css.swp`,
     /// `a.css.tmp`): most editors save by writing a temp file and renaming it over the original, so both show up in one burst.
