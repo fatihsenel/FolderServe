@@ -11,7 +11,7 @@ Rendered from the app's built-in sample data (no real folders or requests).
 
 <img src="docs/screenshots/servers-list.png" alt="Servers screen with five sample folders: running, folder missing, port in use and finding a port" width="720">
 
-<img src="docs/screenshots/activity-detail.png" alt="Activity: request list with the slowest request marked, and the selected request's headers, forwarded address and timing" width="900">
+<img src="docs/screenshots/activity-detail.png" alt="Activity: request list with the slowest request marked, and the selected request's Copy as cURL and Replay buttons, headers, forwarded address and timing" width="900">
 
 | Empty state | Menu bar |
 |---|---|
@@ -19,7 +19,7 @@ Rendered from the app's built-in sample data (no real folders or requests).
 
 | Activity | Options |
 |---|---|
-| ![Activity list with a slowest-request marker and time column](docs/screenshots/activity-list.png) | ![Options popover: SPA mode, Cache, HTTPS, CORS](docs/screenshots/options.png) |
+| ![Activity list with a slowest-request marker and time column](docs/screenshots/activity-list.png) | ![Options popover: SPA mode, Cache, Name address, HTTPS, CORS](docs/screenshots/options.png) |
 
 ![Foldable, coloured JSON tree](docs/screenshots/json-tree.png)
 

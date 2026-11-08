@@ -25,6 +25,9 @@ xcodebuild test -scheme FolderServe -destination 'platform=macOS' CODE_SIGNING_A
 swift test --package-path Packages/FolderServeCore
 ```
 
+CI (`.github/workflows/ci.yml`) runs `swift test` for the package and the app tests on a macOS runner for every push to `main`
+and every pull request.
+
 Run the whole suite before committing. `xcodebuild` prints a lot of `linkd` / `remoteObjectProxy` / `nw_path` log
 noise that is harmless; filter with `grep -E "Executed|\*\* TEST|error:"`.
 
@@ -59,7 +62,9 @@ FOLDERSERVE_SNAPSHOT_DIR=$D TEST_RUNNER_FOLDERSERVE_SNAPSHOT_DIR=$D \
   xcodebuild test -scheme FolderServe -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 ```
 
-Known renderer quirks: a segmented `Picker` draws as a yellow bar with a "no entry" icon, and hover/cursor/animation
+Known renderer quirks: a segmented `Picker`, a `TextField`, a `Menu` and a link-style button draw as a yellow bar with a
+"no entry" icon, so views check `isSnapshotRendering` and draw a plain stand-in (the detail tabs, Activity's search and sort,
+the proxy rule fields, a server's URL). Do the same for any new control. Hover/cursor/animation
 cannot be captured — seed state through initialisers (`ActivityView(initiallyHovered:)`, `AddFolderButton(initiallyHovering:)`,
 `JSONTreeView(folded:)`) and check the live behaviour by hand.
 
@@ -79,3 +84,13 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
 - The JSON preview is a foldable tree (`JSONTreeView` in `RequestDetailView.swift`); keys are sorted, matching
   `displayText`. Bodies that are not valid JSON objects/arrays, or are over 256 KB, fall back to plain text.
 - `RequestLogEntry.durationMs` is how long the server took to answer; it feeds the Activity time column and the "Took" row.
+- **Replay** (`RequestReplay`, the button in the detail panel) re-sends a captured request to the server's *current* address with an
+  `X-FolderServe-Replay` header (`RequestLogEntry.replayHeader`). The proxy never forwards that header, and `RepeatAnalysis` uses it to
+  say "replayed". Bodies are only replayable when captured whole.
+- **Chunked request bodies** are decoded by `ChunkedBody` (core) in the proxy path and forwarded with a `Content-Length`; other transfer
+  codings still get 501.
+- **Name address** (`ServeOptions.friendlyHost`) only changes the URL the app shows and opens (`ServerManager.hostName(for:)`,
+  `HostSlug`); `HostPolicy` already accepts any `*.localhost` host, and nothing else.
+- Swift treats `"\r\n"` as a single `Character`, so `string.contains("\r")` does not match it: check `unicodeScalars` when guarding
+  against header injection.
+- The pointing-hand cursor uses `.handCursor()` (system-owned), never `NSCursor.push()`/`pop()`, which can leave the hand stuck.
