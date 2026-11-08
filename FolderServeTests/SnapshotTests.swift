@@ -155,6 +155,27 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// The Servers screen with an update notice, and Settings with the update row (a checker that found nothing newer).
+    func testRenderUpdateSnapshots() async throws {
+        let release = LatestRelease(tag: "v0.2.0", version: AppVersion("0.2.0")!,
+                                    url: URL(string: "https://github.com/fatihsenel/FolderServe/releases/tag/v0.2.0")!)
+        let defaults = UserDefaults(suiteName: "snap-\(UUID().uuidString)")!
+        let newer = UpdateChecker(currentVersion: AppVersion("0.1.0"), defaults: defaults, fetch: { release })
+        await newer.checkNow()
+        let current = UpdateChecker(currentVersion: AppVersion("0.2.0"), defaults: defaults, fetch: { release })
+        await current.checkNow()
+        for (name, checker, tab) in [("update-banner", newer, SidebarItem.servers), ("settings-updates", current, SidebarItem.settings)] {
+            let view = MainWindow(initialSelection: tab)
+                .environment(PreviewData.manager(populated: tab != .servers)).environment(\.updates, checker)
+                .environment(\.colorScheme, .dark).environment(\.isSnapshotRendering, true)
+                .frame(width: 960, height: 720)
+            let renderer = ImageRenderer(content: view); renderer.scale = 2
+            let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+            let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+            try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-\(name).png"))
+        }
+    }
+
     func testRenderMainWindowSnapshots() throws {
         try render("empty-dark", populated: false, scheme: .dark)
         try render("populated-dark", populated: true, scheme: .dark)

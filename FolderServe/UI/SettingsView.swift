@@ -24,6 +24,8 @@ struct SettingsView: View {
                            detail: loginError ?? "Open FolderServe when you sign in to your Mac.",
                            isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
                 Divider().opacity(0.4)
+                UpdateSettingsRow()
+                Divider().opacity(0.4)
                 SettingRow(title: "Show splash screen",
                            detail: "A short animation when the app opens. Skipped when launched at login.",
                            isOn: Binding(get: { showSplash }, set: { showSplash = $0; SplashSettings.enabled = $0 }))
@@ -70,3 +72,25 @@ private struct SettingRow: View {
 #if DEBUG
 #Preview { SettingsView().environment(PreviewData.manager(populated: false)) }
 #endif
+
+/// Settings: the on/off switch, "Check now" and what the last check found.
+private struct UpdateSettingsRow: View {
+    @Environment(\.updates) private var updates
+    @AppStorage(UpdateChecker.enabledKey) private var enabled = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingRow(title: "Check for updates",
+                       detail: "Once a day FolderServe asks GitHub whether a newer release exists. Nothing about you or your folders is sent, and nothing is installed for you.",
+                       isOn: $enabled)
+            if let updates {
+                HStack(spacing: 10) {
+                    Button("Check now") { Task { await updates.checkNow() } }
+                        .controlSize(.small).disabled(updates.state == .checking)
+                    Text(UpdateStatusText.make(updates.state, current: updates.currentVersion)).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+}

@@ -222,6 +222,17 @@ instead of `127.0.0.1:8080`. Browsers and curl send every `*.localhost` name to 
 HTTPS certificate covers `*.localhost` too. The numeric address keeps working. Only names ending in `.localhost` are accepted, which keeps
 DNS-rebinding hosts like `my-site.localhost.evil.com` out. Cookies are stored per host name, so two folders with the same name on different ports share them.
 
+## Updates
+
+FolderServe checks GitHub for a newer release once a day (and when you choose **FolderServe ▸ Check for Updates…** or **Settings ▸ Check now**).
+If there is one, a notice at the top of the window offers **Download** (the release page) and the Homebrew command
+`brew upgrade --cask folderserve`. It never installs anything itself.
+
+![Update notice at the top of the window](docs/screenshots/update-banner.png)
+
+The check sends a plain request for the latest release of `fatihsenel/FolderServe` and nothing else: no folders, requests or identifiers.
+Turn it off with **Settings ▸ Check for updates**. Closing the notice hides that version until a newer one appears.
+
 ## Releasing
 
 `scripts/release.sh` builds a Release archive, signs it with a **Developer ID Application** certificate, notarizes it with Apple, staples the

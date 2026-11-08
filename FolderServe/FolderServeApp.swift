@@ -11,9 +11,13 @@ struct FolderServeApp: App {
         Window("FolderServe", id: "main") {
             MainWindow()
                 .environment(manager)
+                .environment(\.updates, AppServices.updates)
         }
         .windowStyle(.hiddenTitleBar)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { Task { await UpdatePrompt.checkAndShow(AppServices.updates) } }
+            }
             CommandGroup(replacing: .newItem) {
                 Button("Add Folder…") { FolderPicker.addFolders(to: manager) }
                     .keyboardShortcut("o", modifiers: .command)
