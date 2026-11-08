@@ -183,3 +183,7 @@ With Reduce Motion on, the dashes, ripples and sparks are replaced by a simple f
 The trash button on a card opens a confirmation over the window: the folder's name, framework and path, then what
 will happen (its server stops, its settings such as a custom name and proxy rules are forgotten) and a reminder that
 the files in the folder are never deleted. Cancel (or Esc, or a click outside) keeps everything; Remove confirms.
+
+## License
+
+[MIT](LICENSE)
