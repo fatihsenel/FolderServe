@@ -6,6 +6,7 @@ struct OptionsPopoverView: View {
     @Environment(ServerManager.self) private var manager
     let entryID: UUID
 
+    private var entryName: String { manager.entries.first { $0.id == entryID }?.displayName ?? "folder" }
     private var options: ServeOptions { manager.entries.first { $0.id == entryID }?.options ?? ServeOptions() }
 
     var body: some View {
@@ -13,6 +14,7 @@ struct OptionsPopoverView: View {
             group("Serving")
             row("SPA mode", "Serve index.html for unknown paths so client-side routers work.", \.spaMode)
             row("Cache", "The browser re-checks files with an ETag for faster reloads. Live-reload pages are never cached.", \.caching)
+            row("Name address", "Show and open this folder as \(HostSlug.make(entryName)).localhost instead of 127.0.0.1. Browsers and curl send *.localhost to this Mac.", \.friendlyHost)
             group("Security").padding(.top, 8)
             row("HTTPS", "Serve over https:// with a self-signed localhost certificate. Your browser warns once.", \.https)
             row("CORS", "Lets pages from other origins read these files.", \.cors,

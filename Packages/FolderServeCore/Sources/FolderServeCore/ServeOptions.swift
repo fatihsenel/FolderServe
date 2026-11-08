@@ -21,10 +21,12 @@ public struct ServeOptions: Codable, Equatable, Sendable {
     public var mockRules: [MockRule] = []
     /// Response headers added to matching paths.
     public var headerRules: [HeaderRule] = []
+    /// Show and open the folder as `name.localhost` instead of `127.0.0.1` (the server accepts both either way).
+    public var friendlyHost = false
 
     public init(spaMode: Bool = true, liveReload: Bool = true, serveDotfiles: Bool = false, cors: Bool = false,
                 proxyRules: [ProxyRule] = [], caching: Bool = false, https: Bool = false, shareOnNetwork: Bool = false,
-                mockRules: [MockRule] = [], headerRules: [HeaderRule] = []) {
+                mockRules: [MockRule] = [], headerRules: [HeaderRule] = [], friendlyHost: Bool = false) {
         self.spaMode = spaMode
         self.liveReload = liveReload
         self.serveDotfiles = serveDotfiles
@@ -35,6 +37,7 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         self.shareOnNetwork = shareOnNetwork
         self.mockRules = mockRules
         self.headerRules = headerRules
+        self.friendlyHost = friendlyHost
     }
 
     // Older saved settings lack newer keys; they default to off (or on, for the original switches).
@@ -50,5 +53,6 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         shareOnNetwork = try c.decodeIfPresent(Bool.self, forKey: .shareOnNetwork) ?? false
         mockRules = try c.decodeIfPresent([MockRule].self, forKey: .mockRules) ?? []
         headerRules = try c.decodeIfPresent([HeaderRule].self, forKey: .headerRules) ?? []
+        friendlyHost = try c.decodeIfPresent(Bool.self, forKey: .friendlyHost) ?? false
     }
 }

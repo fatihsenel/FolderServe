@@ -105,7 +105,7 @@ private struct MenuBarRow: View {
 
     private var detail: String {
         switch status {
-        case .running(let port): return "127.0.0.1:\(String(port))"
+        case .running(let port): return "\(manager.hostName(for: entry.id)):\(String(port))"
         case .stopped: return "Stopped"
         case .finding: return "Finding port…"
         case .error(let message): return message

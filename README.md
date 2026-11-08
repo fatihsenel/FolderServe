@@ -211,6 +211,13 @@ The **Mocks** button on a folder's card opens two lists:
 
 Rules apply to a running server immediately. Framing headers (`Content-Length`, `Transfer-Encoding`, `Connection`, `Host`) cannot be changed.
 
+## Name address
+
+Turn on **Name address** in a folder's Options to show and open it as `my-site.localhost:8080` (the folder's name, lower-cased)
+instead of `127.0.0.1:8080`. Browsers and curl send every `*.localhost` name to this Mac, so nothing needs configuring, and the
+HTTPS certificate covers `*.localhost` too. The numeric address keeps working. Only names ending in `.localhost` are accepted, which keeps
+DNS-rebinding hosts like `my-site.localhost.evil.com` out. Cookies are stored per host name, so two folders with the same name on different ports share them.
+
 ## Dropping folders
 
 While you drag a folder over the window the list dims and a landing pad appears ("Drop to start serving"). On drop

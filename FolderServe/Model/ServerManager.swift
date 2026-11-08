@@ -61,9 +61,15 @@ final class ServerManager {
     func url(for id: UUID) -> URL? {
         if case .running(let port) = statuses[id] {
             let secure = entries.first { $0.id == id }?.options.https == true
-            return URL(string: "\(secure ? "https" : "http")://127.0.0.1:\(port)/")
+            return URL(string: "\(secure ? "https" : "http")://\(hostName(for: id)):\(port)/")
         }
         return nil
+    }
+
+    /// `127.0.0.1`, or `name.localhost` when the folder's friendly address is on.
+    func hostName(for id: UUID) -> String {
+        guard let entry = entries.first(where: { $0.id == id }), entry.options.friendlyHost else { return "127.0.0.1" }
+        return HostSlug.make(entry.displayName) + ".localhost"
     }
 
     /// Addresses other devices can use while the folder is shared on the network (empty otherwise).
