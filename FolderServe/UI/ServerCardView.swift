@@ -269,4 +269,9 @@ enum FolderPicker {
         panel.prompt = "Serve"
         return panel.runModal() == .OK ? panel.urls : []
     }
+
+    /// Asks for folders and starts serving each one (the Add Folder button, the menu bar and ⌘O all use this).
+    @MainActor static func addFolders(to manager: ServerManager) {
+        for url in pickFolders(allowsMultiple: true) { manager.add(folder: url) }
+    }
 }

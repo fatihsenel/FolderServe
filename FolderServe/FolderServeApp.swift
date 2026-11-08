@@ -13,6 +13,12 @@ struct FolderServeApp: App {
                 .environment(manager)
         }
         .windowStyle(.hiddenTitleBar)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("Add Folder…") { FolderPicker.addFolders(to: manager) }
+                    .keyboardShortcut("o", modifiers: .command)
+            }
+        }
 
         MenuBarExtra {
             MenuBarView().environment(manager)

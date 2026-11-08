@@ -68,6 +68,13 @@ extension PreviewData {
 #Preview("Add Folder button") {
     HStack(spacing: 30) { AddFolderButton(action: {}); AddFolderButton(action: {}, initiallyHovering: true) }.padding(30)
 }
+
+#Preview("Add Folder button – compact and Choose Folder") {
+    HStack(spacing: 30) {
+        AddFolderButton(title: "Choose Folder…", action: {})
+        AddFolderButton(compact: true, action: {}, initiallyHovering: true)
+    }.padding(30)
+}
 #Preview("Server card") {
     let s = PreviewData.runningServer()
     return ServerCardView(entryID: s.id).environment(s.manager).padding().frame(width: 700)

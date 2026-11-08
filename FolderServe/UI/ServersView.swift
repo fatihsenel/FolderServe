@@ -66,9 +66,7 @@ struct ServersView: View {
         .animation(.spring(response: 0.5, dampingFraction: 0.78), value: manager.entries.map(\.id))
     }
 
-    private func addFolders() {
-        for url in FolderPicker.pickFolders(allowsMultiple: true) { manager.add(folder: url) }
-    }
+    private func addFolders() { FolderPicker.addFolders(to: manager) }
 }
 
 private struct FolderDropModifier: ViewModifier {
@@ -91,13 +89,18 @@ private struct FolderDropModifier: ViewModifier {
 }
 
 
-/// The main screen's "Add Folder…" button: on hover it grows a little, glows and turns its plus; on press it dips.
+/// The "Add Folder…" button: on hover it grows a little, glows and turns its plus; on press it dips.
+/// `compact` is the smaller version used in the menu bar window; `title` lets the empty state say "Choose Folder…".
 struct AddFolderButton: View {
     let action: () -> Void
+    var title: String = "Add Folder…"
+    var compact: Bool = false
     @State private var hovering: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(action: @escaping () -> Void, initiallyHovering: Bool = false) {
+    init(title: String = "Add Folder…", compact: Bool = false, action: @escaping () -> Void, initiallyHovering: Bool = false) {
+        self.title = title
+        self.compact = compact
         self.action = action
         _hovering = State(initialValue: initiallyHovering)
     }
@@ -105,12 +108,12 @@ struct AddFolderButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: "plus").font(.system(size: 14, weight: .bold))
+                Image(systemName: "plus").font(.system(size: compact ? 11 : 14, weight: .bold))
                     .rotationEffect(.degrees(hovering && !reduceMotion ? 90 : 0))
-                Text("Add Folder…").font(.system(size: 15, weight: .semibold))
+                Text(title).font(.system(size: compact ? 12 : 15, weight: .semibold))
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 18).padding(.vertical, 10)
+            .padding(.horizontal, compact ? 11 : 18).padding(.vertical, compact ? 5 : 10)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(
                 LinearGradient(colors: [Theme.accent.opacity(hovering ? 1 : 0.88), Theme.accent.opacity(hovering ? 0.82 : 0.70)],
                                startPoint: .top, endPoint: .bottom)))
@@ -124,7 +127,7 @@ struct AddFolderButton: View {
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.62), value: hovering)
-        .accessibilityLabel("Add folder")
+        .accessibilityLabel(title.replacingOccurrences(of: "…", with: ""))
     }
 }
 

@@ -31,13 +31,15 @@ struct MenuBarView: View {
             }
             Divider()
             HStack {
-                Button { addFolders() } label: { Label("Add Folder…", systemImage: "plus") }
+                AddFolderButton(title: "Add Folder…", compact: true) { addFolders() }
                 Spacer()
-                Button("Open App") { openApp() }
-                Button("Quit") { NSApplication.shared.terminate(nil) }
+                Group {
+                    Button("Open App") { openApp() }
+                    Button("Quit") { NSApplication.shared.terminate(nil) }
+                }
+                .buttonStyle(.plain)
+                .font(.callout)
             }
-            .buttonStyle(.plain)
-            .font(.callout)
         }
         .padding(14)
         .frame(width: 340)
@@ -56,7 +58,7 @@ struct MenuBarView: View {
 
     private func addFolders() {
         NSApplication.shared.activate(ignoringOtherApps: true)
-        for url in FolderPicker.pickFolders(allowsMultiple: true) { manager.add(folder: url) }
+        FolderPicker.addFolders(to: manager)
     }
 }
 
