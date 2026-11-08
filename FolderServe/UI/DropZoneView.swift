@@ -17,10 +17,7 @@ struct DropZoneView: View {
                 .font(.system(size: 24, weight: .semibold, design: .rounded))
             Text("It will be served at http://127.0.0.1 with live reload.")
                 .foregroundStyle(.secondary)
-            Button("Choose Folder…", action: addFolder)
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
-                .controlSize(.large)
+            AddFolderButton(title: "Choose Folder…", action: addFolder)
         }
         .frame(maxWidth: .infinity, minHeight: 360)
         .background(

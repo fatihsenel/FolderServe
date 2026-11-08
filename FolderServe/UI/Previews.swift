@@ -68,6 +68,13 @@ extension PreviewData {
 #Preview("Add Folder button") {
     HStack(spacing: 30) { AddFolderButton(action: {}); AddFolderButton(action: {}, initiallyHovering: true) }.padding(30)
 }
+
+#Preview("Add Folder button – compact and Choose Folder") {
+    HStack(spacing: 30) {
+        AddFolderButton(title: "Choose Folder…", action: {})
+        AddFolderButton(compact: true, action: {}, initiallyHovering: true)
+    }.padding(30)
+}
 #Preview("Server card") {
     let s = PreviewData.runningServer()
     return ServerCardView(entryID: s.id).environment(s.manager).padding().frame(width: 700)
@@ -89,6 +96,15 @@ extension PreviewData {
     let json = #"{"user":{"id":42,"name":"Ada","admin":true,"manager":null,"roles":["ops","dev"],"score":9.5},"ok":true}"#
     return RequestDetailView(line: PreviewData.requestLine(for: s.id), initialTab: .preview,
                              preloaded: LoadedContent(data: Data(json.utf8)), onClose: {})
+        .environment(s.manager).frame(width: 520, height: 600)
+}
+#Preview("Request detail – XML response") {
+    let s = PreviewData.runningServer()
+    let xml = #"<?xml version="1.0"?><users total="2"><user id="7"><name>Ada</name><tags><tag>ops</tag><tag>dev</tag></tags></user><user id="9"><name>Linus</name><note/></user></users>"#
+    var entry = PreviewData.requestLine(for: s.id).entry
+    entry.responseHeaders = [HTTPHeaderField(name: "Content-Type", value: "application/xml")]
+    return RequestDetailView(line: LogLine(serverID: s.id, entry: entry), initialTab: .preview,
+                             preloaded: LoadedContent(data: Data(xml.utf8)), onClose: {})
         .environment(s.manager).frame(width: 520, height: 600)
 }
 #Preview("Menu bar") { MenuBarView().environment(PreviewData.manager(populated: true)).frame(width: 320) }

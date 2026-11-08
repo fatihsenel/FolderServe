@@ -269,10 +269,73 @@ final class RequestDetailTests: XCTestCase {
         try render("response", RequestDetailView(line: apiLine, initialTab: .response, preloaded: body) {})
         try render("preview-json", RequestDetailView(line: apiLine, initialTab: .preview, preloaded: body) {})
 
+        var xmlEntry = entry(method: "GET", path: "/feed.xml", status: 200, category: .fetch, type: "application/xml")
+        let xml = Self.sampleXML
+        xmlEntry.responseBody = Data(xml.utf8)
+        try render("preview-xml", RequestDetailView(line: LogLine(serverID: UUID(), entry: xmlEntry), initialTab: .preview,
+                                                    preloaded: LoadedContent(data: Data(xml.utf8), totalSize: Int64(xml.utf8.count))) {})
+
         var img = entry(method: "GET", path: "/assets/images/logo.png", status: 200, category: .img, type: "image/png")
         img.servedFile = "/Users/me/site/assets/images/logo.png"
         let png = samplePNG()
         try render("preview-image", RequestDetailView(line: LogLine(serverID: UUID(), entry: img), initialTab: .preview,
                                                       preloaded: LoadedContent(data: png, totalSize: Int64(png.count))) {})
+    }
+
+    // MARK: XML
+
+    static let sampleXML = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <users total="2">
+      <!-- active accounts -->
+      <user id="7" role="admin"><name>Ada</name><email>ada@example.com</email></user>
+      <user id="9"><name>Linus &amp; Co</name><tags><tag>ops</tag><tag>dev</tag></tags><note/></user>
+    </users>
+    """
+
+    func testXMLParsesIntoATree() throws {
+        let root = try XCTUnwrap(XMLTreeParser.parse(Data(Self.sampleXML.utf8), contentType: "application/xml"))
+        XCTAssertEqual(root.name, "users")
+        XCTAssertEqual(root.attributes.map(\.name), ["total"])
+        XCTAssertEqual(root.children.count, 3, "a comment and two users")
+        guard case .comment(let c) = root.children[0] else { return XCTFail("first child should be the comment") }
+        XCTAssertEqual(c, "active accounts")
+        guard case .element(let ada) = root.children[1] else { return XCTFail() }
+        XCTAssertEqual(ada.attributes.map(\.name), ["id", "role"])
+        guard case .element(let name) = ada.children[0] else { return XCTFail() }
+        XCTAssertEqual(name.onlyText, "Ada")
+        XCTAssertEqual(XMLTreeParser.elementCount(root), 10)
+    }
+
+    func testXMLEntitiesAndEmptyElements() throws {
+        let root = try XCTUnwrap(XMLTreeParser.parse(Data(Self.sampleXML.utf8), contentType: "text/xml"))
+        guard case .element(let linus) = root.children[2], case .element(let name) = linus.children[0] else { return XCTFail() }
+        XCTAssertEqual(name.onlyText, "Linus & Co")
+        guard case .element(let note) = linus.children[2] else { return XCTFail() }
+        XCTAssertTrue(note.children.isEmpty)
+    }
+
+    func testXMLIsDetectedByContentTypeOrDeclaration() {
+        let data = Data("<a><b/></a>".utf8)
+        XCTAssertNotNil(XMLTreeParser.parse(data, contentType: "application/atom+xml; charset=utf-8"))
+        XCTAssertNil(XMLTreeParser.parse(data, contentType: "text/html"), "no type and no declaration: not treated as XML")
+        XCTAssertNotNil(XMLTreeParser.parse(Data("<?xml version=\"1.0\"?><a/>".utf8), contentType: nil))
+    }
+
+    func testBrokenOrHugeXMLFallsBackToText() {
+        XCTAssertNil(XMLTreeParser.parse(Data("<a><b></a>".utf8), contentType: "text/xml"), "mismatched tags")
+        XCTAssertNil(XMLTreeParser.parse(Data("<a>cut off".utf8), contentType: "text/xml"))
+        let huge = Data(("<a>" + String(repeating: "x", count: XMLTreeParser.sizeLimit) + "</a>").utf8)
+        XCTAssertNil(XMLTreeParser.parse(huge, contentType: "text/xml"))
+    }
+
+    func testExternalEntitiesAreNotResolved() {
+        let evil = #"<?xml version="1.0"?><!DOCTYPE a [<!ENTITY x SYSTEM "file:///etc/passwd">]><a>&x;</a>"#
+        let root = XMLTreeParser.parse(Data(evil.utf8), contentType: "text/xml")
+        XCTAssertFalse((root?.onlyText ?? "").contains("root:"))
+    }
+
+    func testXMLAttributeEscaping() {
+        XCTAssertEqual(XMLTreeText.escapeAttribute(#"a "b" & <c>"#), "a &quot;b&quot; &amp; &lt;c>")
     }
 }
