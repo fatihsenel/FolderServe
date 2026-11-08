@@ -17,6 +17,9 @@ final class ServerManager {
     /// The folder the user asked to remove; the window shows a confirmation for it.
     private(set) var pendingRemoval: UUID?
     private(set) var log: [LogLine] = []
+    /// Folders that were served before and then removed from the list, newest first (the menu bar offers them for one-click reuse).
+    private(set) var recents: [ServerEntry] = []
+    static let maxRecents = 6
     /// Global setting: serve dotfiles (e.g. .env) from every folder. Off by default.
     private(set) var serveDotfiles: Bool
     /// Global setting: start the servers that were running when the app last quit.
@@ -25,6 +28,7 @@ final class ServerManager {
     }
 
     @ObservationIgnored private let store: ServerStoring
+    @ObservationIgnored private let recentsStore: ServerStoring?
     @ObservationIgnored private let defaultStartPort: UInt16
     @ObservationIgnored private let minSearchDuration: TimeInterval
     @ObservationIgnored private let bodyBudget: Int
@@ -43,10 +47,11 @@ final class ServerManager {
 
     init(store: ServerStoring, defaultStartPort: UInt16 = 8080, minSearchDuration: TimeInterval = 1.5,
          bodyBudget: Int = 20 * 1024 * 1024, highlightDuration: TimeInterval = 2.2,
-         defaults: UserDefaults = .standard, certificateDirectory: URL? = nil) {
+         defaults: UserDefaults = .standard, certificateDirectory: URL? = nil, recentsStore: ServerStoring? = nil) {
         self.certificateDirectory = certificateDirectory ?? FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("FolderServe/Certificates")
         self.store = store
+        self.recentsStore = recentsStore
         self.highlightDuration = highlightDuration
         self.bodyBudget = bodyBudget
         self.minSearchDuration = minSearchDuration
@@ -56,6 +61,8 @@ final class ServerManager {
         self.startServersAtLaunch = defaults.object(forKey: Self.startAtLaunchKey) as? Bool ?? true
         entries = store.load()
         for e in entries { statuses[e.id] = .stopped }
+        let active = Set(entries.map(\.folderPath))
+        recents = Array((recentsStore?.load() ?? []).filter { !active.contains($0.folderPath) }.prefix(Self.maxRecents))
     }
 
     func url(for id: UUID) -> URL? {
@@ -103,8 +110,14 @@ final class ServerManager {
             Task { await startNow(existing.id) }
             return existing.id
         }
-        let entry = ServerEntry(id: UUID(), bookmark: Self.makeBookmark(folder), folderPath: path,
+        var entry = ServerEntry(id: UUID(), bookmark: Self.makeBookmark(folder), folderPath: path,
                                 preferredPort: nil, options: ServeOptions(serveDotfiles: serveDotfiles), autoStart: true)
+        if let old = recents.first(where: { $0.folderPath == path }) {   // served before: keep its name, port and options
+            entry.customName = old.customName; entry.preferredPort = old.preferredPort
+            entry.options = old.options; entry.pinnedStart = old.pinnedStart
+            recents.removeAll { $0.folderPath == path }
+            persistRecents()
+        }
         entries.append(entry)
         statuses[entry.id] = .stopped
         persist()
@@ -140,10 +153,54 @@ final class ServerManager {
     func remove(_ id: UUID) {
         if pendingRemoval == id { pendingRemoval = nil }
         teardown(id)
+        if let entry = entries.first(where: { $0.id == id }) { remember(entry) }
         entries.removeAll { $0.id == id }
         statuses[id] = nil
         projectKinds[id] = nil
         persist()
+    }
+
+    // MARK: - Recent folders
+
+    private func remember(_ entry: ServerEntry) {
+        var old = entry
+        old.autoStart = false
+        recents.removeAll { $0.folderPath == entry.folderPath }
+        recents.insert(old, at: 0)
+        if recents.count > Self.maxRecents { recents.removeLast(recents.count - Self.maxRecents) }
+        persistRecents()
+    }
+
+    /// Serves a recent folder again with the name, port and options it had, using the access saved with it.
+    /// Returns the new server's id (nil when the recent is unknown or the folder is already served).
+    @discardableResult
+    func reopenRecent(_ id: UUID) async -> UUID? {
+        guard let old = recents.first(where: { $0.id == id }) else { return nil }
+        recents.removeAll { $0.id == id }
+        persistRecents()
+        if let existing = entries.first(where: { $0.folderPath == old.folderPath }) {
+            highlight(existing.id)
+            await startNow(existing.id)
+            return existing.id
+        }
+        var entry = old
+        entry.autoStart = true
+        entries.append(entry)
+        statuses[entry.id] = .stopped
+        persist()
+        highlight(entry.id)
+        await startNow(entry.id)
+        return entry.id
+    }
+
+    func forgetRecent(_ id: UUID) {
+        recents.removeAll { $0.id == id }
+        persistRecents()
+    }
+
+    func clearRecents() {
+        recents = []
+        persistRecents()
     }
 
     func relocate(_ id: UUID, to folder: URL) {
@@ -393,6 +450,7 @@ final class ServerManager {
     }
 
     private func persist() { store.save(entries) }
+    private func persistRecents() { recentsStore?.save(recents) }
 
     private static func makeBookmark(_ folder: URL) -> Data {
         (try? folder.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess], includingResourceValuesForKeys: nil, relativeTo: nil)) ?? Data()
@@ -441,7 +499,9 @@ final class ServerManager {
 #if DEBUG
 extension ServerManager {
     /// Seeds state for SwiftUI previews and snapshot tests without starting real servers.
-    func loadPreview(entries: [ServerEntry], statuses: [UUID: ServerStatus], log: [LogLine] = [], kinds: [UUID: ProjectKind] = [:]) {
+    func loadPreview(entries: [ServerEntry], statuses: [UUID: ServerStatus], log: [LogLine] = [], kinds: [UUID: ProjectKind] = [:],
+                     recents: [ServerEntry] = []) {
+        self.recents = recents
         self.projectKinds = kinds
         self.entries = entries
         self.statuses = statuses

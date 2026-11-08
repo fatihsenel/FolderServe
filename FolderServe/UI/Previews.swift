@@ -45,7 +45,8 @@ enum PreviewData {
             line(a.id, "GET", "/old-page", 301, 140, 2), line(b.id, "GET", "/.env", 403, 580, 1),
             line(a.id, "POST", "/uiapi/Account/Login", 200, 912, 1, ms: 1240), line(a.id, "GET", "/fonts/inter.woff2", 200, 48_000, 1),
             line(b.id, "GET", "/main-AB12.js", 200, 350_000, 1), line(b.id, "GET", "/logo.png", 200, 9_300, 1),
-        ], kinds: [a.id: .angular, b.id: .react, d.id: .vue])
+        ], kinds: [a.id: .angular, b.id: .react, d.id: .vue],
+        recents: [entry("landing-page"), entry("docs-preview")])
         return m
     }
 }

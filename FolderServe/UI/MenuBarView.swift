@@ -29,6 +29,7 @@ struct MenuBarView: View {
                     ForEach(manager.entries) { MenuBarRow(entry: $0) }
                 }
             }
+            if !manager.recents.isEmpty { MenuBarRecents() }
             Divider()
             HStack {
                 AddFolderButton(title: "Add Folder…", compact: true) { addFolders() }
@@ -117,6 +118,49 @@ private struct MenuBarRow: View {
         guard let url = manager.url(for: entry.id) else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(url.absoluteString, forType: .string)
+    }
+}
+
+/// Folders removed from the list earlier: one click serves one again (with its old name, port and options) and opens it.
+struct MenuBarRecents: View {
+    @Environment(ServerManager.self) private var manager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text("Recent folders").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button("Clear") { manager.clearRecents() }
+                    .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary).handCursor()
+            }
+            ForEach(manager.recents) { recent in
+                HStack(spacing: 8) {
+                    Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
+                    Text(recent.displayName).font(.system(size: 13)).lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(Self.location(of: recent.folderPath)).font(.caption2).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.head)
+                    Button { manager.forgetRecent(recent.id) } label: { Image(systemName: "xmark") }
+                        .buttonStyle(.plain).foregroundStyle(.secondary).help("Forget this folder")
+                }
+                .padding(.vertical, 3)
+                .contentShape(Rectangle())
+                .onTapGesture { serve(recent) }
+                .handCursor()
+                .help("Serve \(recent.folderPath) again and open it")
+            }
+        }
+    }
+
+    /// The parent folder's name ("Projects" for /Users/me/Projects/site), enough to tell two same-named folders apart.
+    static func location(of path: String) -> String {
+        URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent
+    }
+
+    private func serve(_ recent: ServerEntry) {
+        Task {
+            guard let id = await manager.reopenRecent(recent.id), let url = manager.url(for: id) else { return }
+            NSWorkspace.shared.open(url)
+        }
     }
 }
 

@@ -2,7 +2,7 @@ import AppKit
 
 @MainActor
 enum AppServices {
-    static let manager = ServerManager(store: JSONFileStore.default)
+    static let manager = ServerManager(store: JSONFileStore.default, recentsStore: JSONFileStore.recents)
     @MainActor static let updates = UpdateChecker()
 }
 

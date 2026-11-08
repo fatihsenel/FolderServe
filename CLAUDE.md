@@ -98,4 +98,5 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
   never installs anything. It is optional in the environment (`@Environment(\.updates)`, nil in previews and tests), so views using it need no injection.
   The release page address from GitHub's answer must be on github.com under this project before it is ever opened. Sparkle (in-place updates) was
   considered and left out on purpose: the sandbox needs extra XPC entitlements, and it needs a signing key and an appcast.
-
+- **Recent folders** (`ServerManager.recents`, `MenuBarRecents`): `remove(_:)` keeps the removed `ServerEntry` (bookmark included) in `recents.json` (newest first, max 6);
+  `reopenRecent(_:)` serves it again and `add(folder:)` also restores a matching recent's name, port and options. Tests pass no `recentsStore`, so nothing is written to disk.
