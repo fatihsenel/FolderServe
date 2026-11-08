@@ -188,6 +188,13 @@ Requests that no page made (no referer, `Sec-Fetch-Site: none`, empty destinatio
 extension does when it re-fetches a file to show it, are **hidden from the list** and from the category counts. A dashed
 pill under the category chips says how many are hidden; click it to show them (the choice is remembered).
 
+## Replay a request
+
+Open a request in Activity and click **Replay** to send it again to the same server, with the same method, path, query,
+headers and body. The answer shows up in Activity like any other request, marked **Replayed** (the `X-FolderServe-Replay`
+header, which is never passed on to a proxy target). It needs the server to be running, and a body that was captured
+whole (bodies are only kept for proxied calls, up to 32 KB). `Authorization` and cookies are sent as they were logged.
+
 ## Show in Finder
 
 Each card has a **Finder** button (also in the right-click menu on the folder's name) that opens the folder in Finder.

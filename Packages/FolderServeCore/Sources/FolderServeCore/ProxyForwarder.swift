@@ -85,7 +85,8 @@ final class ProxyForwarder: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         request.timeoutInterval = timeout
         let origin = rule.targetOrigin
         let hop: Set<String> = ["host", "connection", "keep-alive", "proxy-authorization", "proxy-connection", "te",
-                                "trailer", "upgrade", "transfer-encoding", "content-length", "accept-encoding"]
+                                "trailer", "upgrade", "transfer-encoding", "content-length", "accept-encoding",
+                                RequestLogEntry.replayHeader]
         for (name, value) in req.headers where !hop.contains(name) {
             switch name {
             case "origin": if let origin { request.setValue(origin, forHTTPHeaderField: "Origin") }

@@ -255,6 +255,14 @@ final class ProxyIntegrationTests: XCTestCase {
         XCTAssertEqual(upstream.last?.headers["accept-encoding"], "identity")
     }
 
+    func testReplayMarkerIsNotPassedToTheTarget() async throws {
+        let port = try await start()
+        let r = try send(port, "GET", "/api/users", headers: "X-FolderServe-Replay: 1\r\nX-Other: keep\r\n")
+        XCTAssertEqual(r.status, 200)
+        XCTAssertNil(upstream.last?.headers[RequestLogEntry.replayHeader])
+        XCTAssertEqual(upstream.last?.headers["x-other"], "keep")
+    }
+
     func testLargeBodyArrivesIntact() async throws {
         let port = try await start()
         let big = String(repeating: "x", count: 300_000)
