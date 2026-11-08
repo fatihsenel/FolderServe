@@ -176,7 +176,15 @@ struct ActivityView: View {
     }
 
     /// Newest first (the default) or slowest first.
-    private var sortMenu: some View {
+    @ViewBuilder private var sortMenu: some View {
+        if isSnapshot {
+            Label(slowestFirst ? "Slowest" : "Newest", systemImage: "arrow.up.arrow.down")   // ImageRenderer cannot draw a Menu
+        } else {
+            sortMenuControl
+        }
+    }
+
+    private var sortMenuControl: some View {
         Menu {
             Picker("Sort by", selection: $slowestFirst) {
                 Label("Newest first", systemImage: "clock").tag(false)
@@ -245,6 +253,10 @@ struct ActivityView: View {
     private var searchField: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            if isSnapshot {
+                Text(query.isEmpty ? "Search requests" : query).foregroundStyle(query.isEmpty ? .secondary : .primary)   // ImageRenderer cannot draw a TextField
+                Spacer(minLength: 0)
+            } else {
             TextField("Search requests", text: $query)
                 .textFieldStyle(.plain)
                 .onExitCommand { query = "" }
@@ -257,6 +269,7 @@ struct ActivityView: View {
                 Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.plain).foregroundStyle(.secondary).help("Clear the search")
                     .accessibilityLabel("Clear the search")
+            }
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)

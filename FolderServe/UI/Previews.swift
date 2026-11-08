@@ -19,6 +19,20 @@ enum PreviewData {
             var e = RequestLogEntry(date: now.addingTimeInterval(-ago), method: method, path: path, status: status, bytes: bytes,
                                     category: .classify(path: path, secFetchDest: nil, proxied: path.hasPrefix("/uiapi")))
             e.durationMs = ms ?? (path.hasPrefix("/uiapi") ? 640 : (bytes > 100_000 ? 85 : 3))
+            e.url = "http://127.0.0.1:8080" + path
+            let proxied = path.hasPrefix("/uiapi")
+            e.requestHeaders = [HTTPHeaderField(name: "accept", value: proxied ? "application/json" : "*/*"),
+                                HTTPHeaderField(name: "host", value: "127.0.0.1:8080"),
+                                HTTPHeaderField(name: "referer", value: "http://127.0.0.1:8080/"),
+                                HTTPHeaderField(name: "user-agent", value: "Mozilla/5.0 (Macintosh) Safari/605.1.15")]
+                + (proxied ? [HTTPHeaderField(name: "content-type", value: "application/json")] : [])
+            e.responseHeaders = [HTTPHeaderField(name: "Cache-Control", value: "no-store"),
+                                 HTTPHeaderField(name: "Content-Type", value: proxied ? "application/json; charset=utf-8" : "text/plain; charset=utf-8")]
+            if proxied {
+                e.upstreamURL = "https://localhost:5003" + path
+                e.requestBody = Data(#"{"email":"ada@example.com","password":"••••••"}"#.utf8)
+                e.responseBody = Data(#"{"token":"eyJhbGciOi...","user":{"id":7,"name":"Ada"},"roles":["admin","editor"]}"#.utf8)
+            }
             return LogLine(serverID: id, entry: e)
         }
         m.loadPreview(entries: [a, b, c, d, e], statuses: [
