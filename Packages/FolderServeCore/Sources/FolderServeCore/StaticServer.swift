@@ -258,25 +258,60 @@ public final class StaticServer: @unchecked Sendable {
             }
             return
         }
-        if let te = req.headers["transfer-encoding"], !te.lowercased().contains("identity") {
-            sendPage(conn, status: 501, message: "Chunked request bodies are not supported by the proxy",
-                     method: req.method, path: req.path, head: isHead)
+        let extra = connHeaders[ObjectIdentifier(conn)] ?? [:]
+        let fail: (Int, String) -> Void = { [weak self] status, message in
+            self?.sendPage(conn, status: status, message: message, method: req.method, path: req.path, head: isHead)
+        }
+        let forward: (Data) -> Void = { [weak self] body in
+            guard let self else { return }
+            self.forwarder.forward(conn: conn, req: req, body: body, rule: rule, extraHeaders: extra,
+                                   log: { [weak self] in self?.lockedLog($0) }, fail: fail)
+        }
+        if let te = req.headers["transfer-encoding"]?.lowercased(), te != "identity" {
+            guard te == "chunked" else {
+                sendPage(conn, status: 501, message: "Unsupported Transfer-Encoding for the proxy: \(te)",
+                         method: req.method, path: req.path, head: isHead)
+                return
+            }
+            readChunkedBody(conn, have: buffered, expectContinue: expectsContinue(req), sentContinue: false) { result in
+                switch result {
+                case .complete(let body, _): forward(body)
+                case .tooLarge: fail(413, "Request body too large for the proxy (limit 32 MB)")
+                case .malformed: fail(400, "Malformed chunked request body")
+                case .needMore: break   // the connection closed first; nothing to answer
+                }
+            }
             return
         }
         let need = Int(req.headers["content-length"] ?? "") ?? 0
         guard need >= 0, need <= ProxyForwarder.maxRequestBody else {
-            sendPage(conn, status: 413, message: "Request body too large for the proxy (limit 32 MB)",
-                     method: req.method, path: req.path, head: isHead)
+            fail(413, "Request body too large for the proxy (limit 32 MB)")
             return
         }
-        let extra = connHeaders[ObjectIdentifier(conn)] ?? [:]
-        readBody(conn, have: buffered, need: need) { [weak self] body in
-            guard let self, let body else { return }
-            self.forwarder.forward(conn: conn, req: req, body: body, rule: rule, extraHeaders: extra,
-                                   log: { [weak self] in self?.lockedLog($0) },
-                                   fail: { [weak self] status, message in
-                                       self?.sendPage(conn, status: status, message: message, method: req.method, path: req.path, head: isHead)
-                                   })
+        if need > buffered.count, expectsContinue(req) { sendContinue(conn) }
+        readBody(conn, have: buffered, need: need) { body in
+            guard let body else { return }
+            forward(body)
+        }
+    }
+
+    private func expectsContinue(_ req: HTTPRequest) -> Bool {
+        req.headers["expect"]?.lowercased().contains("100-continue") == true
+    }
+
+    /// Clients that sent `Expect: 100-continue` wait for this before sending the body (curl waits a second without it).
+    private func sendContinue(_ conn: NWConnection) {
+        conn.send(content: Data("HTTP/1.1 100 Continue\r\n\r\n".utf8), completion: .contentProcessed { _ in })
+    }
+
+    private func readChunkedBody(_ conn: NWConnection, have: Data, expectContinue: Bool, sentContinue: Bool,
+                                 then: @escaping (ChunkedBody.Result) -> Void) {
+        let result = ChunkedBody.decode(have, maxSize: ProxyForwarder.maxRequestBody)
+        guard case .needMore = result else { then(result); return }
+        if expectContinue && !sentContinue { sendContinue(conn) }
+        conn.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
+            if error != nil || (data == nil && isComplete) { conn.cancel(); then(.needMore); return }
+            self?.readChunkedBody(conn, have: have + (data ?? Data()), expectContinue: expectContinue, sentContinue: true, then: then)
         }
     }
 
