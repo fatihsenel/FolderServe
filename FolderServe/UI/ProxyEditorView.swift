@@ -4,6 +4,7 @@ import FolderServeCore
 /// Edits a folder's API proxy rules. Changes apply to the running server immediately.
 struct ProxyEditorView: View {
     @Environment(ServerManager.self) private var manager
+    @Environment(\.isSnapshotRendering) private var isSnapshot
     let entryID: UUID
     @State private var rules: [ProxyRule]
 
@@ -27,9 +28,9 @@ struct ProxyEditorView: View {
             ForEach($rules) { $rule in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
-                        TextField("/api", text: $rule.prefix).frame(width: 110)
+                        field("/api", $rule.prefix).frame(width: 110)
                         Image(systemName: "arrow.right").foregroundStyle(.secondary)
-                        TextField("https://localhost:5003", text: $rule.target)
+                        field("https://localhost:5003", $rule.target)
                         Button { rules.removeAll { $0.id == rule.id } } label: { Image(systemName: "trash") }
                             .buttonStyle(.plain).foregroundStyle(.secondary).help("Remove this rule")
                     }
@@ -65,5 +66,19 @@ struct ProxyEditorView: View {
         .padding(16)
         .frame(width: 460)
         .onChange(of: rules) { _, new in manager.setProxyRules(entryID, new) }
+    }
+}
+
+private extension ProxyEditorView {
+    /// A text field; screenshots (ImageRenderer cannot draw one) get a drawn box with the same text.
+    @ViewBuilder func field(_ placeholder: String, _ text: Binding<String>) -> some View {
+        if isSnapshot {
+            Text(text.wrappedValue.isEmpty ? placeholder : text.wrappedValue)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 6).padding(.vertical, 4)
+                .background(RoundedRectangle(cornerRadius: 5).fill(.white.opacity(0.1)))
+        } else {
+            TextField(placeholder, text: text)
+        }
     }
 }

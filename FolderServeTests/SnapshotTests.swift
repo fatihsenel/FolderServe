@@ -163,6 +163,18 @@ final class SnapshotTests: XCTestCase {
         try render("settings-dark", populated: true, scheme: .dark, tab: .settings)
     }
 
+    func testRenderProxyEditorSnapshot() throws {
+        let manager = PreviewData.manager(populated: true)
+        let entry = try XCTUnwrap(manager.entries.first)
+        let view = ProxyEditorView(entryID: entry.id, initialRules: entry.options.proxyRules)
+            .environment(manager).environment(\.colorScheme, .dark).environment(\.isSnapshotRendering, true)
+            .background(Color(white: 0.16))
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-proxy-editor.png"))
+    }
+
     func testRenderOptionsPopoverSnapshot() throws {
         let manager = PreviewData.manager(populated: true)
         let id = try XCTUnwrap(manager.entries.first?.id)
