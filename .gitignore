@@ -6,3 +6,4 @@ DerivedData/
 .swarm/
 .superpowers/
 FolderServe/Info.plist
+build/
