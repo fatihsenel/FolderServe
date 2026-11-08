@@ -36,8 +36,10 @@ final class ReloadScriptTests: XCTestCase {
         XCTAssertEqual(ReloadKind.classify(paths: ["/site/a.css", "/site/deep/B.CSS"]), .styles)
         XCTAssertEqual(ReloadKind.classify(paths: ["/site/a.css", "/site/index.html"]), .full)
         XCTAssertEqual(ReloadKind.classify(paths: ["/site/app.js"]), .full)
-        XCTAssertEqual(ReloadKind.classify(paths: ["/site/a.css.map"]), .full)
-        XCTAssertEqual(ReloadKind.classify(paths: ["/site/a.css~"]), .full)   // an editor's temporary file: be safe and reload
+        XCTAssertEqual(ReloadKind.classify(paths: ["/site/a.css.map"]), .styles)
+        XCTAssertEqual(ReloadKind.classify(paths: ["/site/styles.css.ts"]), .full)
+        XCTAssertEqual(ReloadKind.classify(paths: ["/site/a.cssx"]), .full)
+        XCTAssertEqual(ReloadKind.classify(paths: ["/site/a.scss"]), .full)
         XCTAssertEqual(ReloadKind.classify(paths: ["/site/folder"]), .full)
         XCTAssertEqual(ReloadKind.classify(paths: []), .full)
     }
@@ -46,5 +48,15 @@ final class ReloadScriptTests: XCTestCase {
         XCTAssertEqual(ReloadKind.styles.message, "data: css\n\n")
         XCTAssertEqual(ReloadKind.full.message, "data: reload\n\n")
         XCTAssertTrue(ReloadScript.source.contains("e.data!=='css'"))
+    }
+
+    func testEditorTemporaryFilesNextToACSSFileStillCountAsStyles() {
+        // What FSEvents reports for an atomic save (temp file + rename), and other editors' temp/backup names.
+        XCTAssertEqual(ReloadKind.classify(paths: ["/site/css/style.css", "/site/css/style.css.sb-d1226737-7FLQ8o"]), .styles)
+        XCTAssertEqual(ReloadKind.classify(paths: ["/site/style.css~"]), .styles)
+        XCTAssertEqual(ReloadKind.classify(paths: ["/site/.style.css.swp"]), .styles)
+        XCTAssertEqual(ReloadKind.classify(paths: ["/site/style.css.tmp", "/site/style.css"]), .styles)
+        // ...but a temp file of anything else keeps the full reload.
+        XCTAssertEqual(ReloadKind.classify(paths: ["/site/style.css", "/site/index.html.sb-1234"]), .full)
     }
 }
