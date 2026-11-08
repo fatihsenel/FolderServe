@@ -2,8 +2,15 @@
 
 [![CI](https://github.com/fatihsenel/FolderServe/actions/workflows/ci.yml/badge.svg)](https://github.com/fatihsenel/FolderServe/actions/workflows/ci.yml)
 
-A native macOS app (window + menu bar) that serves any folder over HTTP on localhost — for previewing
-static sites and single page apps, with live reload.
+**Serve any folder on localhost and see every request your page makes — no terminal needed.**
+
+A native macOS app (window + menu bar) for previewing static sites and single page apps: drop a folder, get a URL,
+edit a file and the browser reloads. A dev-tools style Activity log shows each request with its timing, headers and
+body, and can replay it, copy it as cURL or export it as a HAR file.
+
+**Why not `npx serve` or `python -m http.server`?** Those are fine for a quick look. FolderServe is for when you keep
+several folders open all day, want them back with one click after a restart, test on your phone, put an API behind a proxy,
+or need to know why a request failed — without opening a terminal.
 
 ## Install
 
@@ -43,8 +50,8 @@ Rendered from the app's built-in sample data (no real folders or requests).
 ## Features
 
 - Drop a folder on the window, the Dock icon or the menu bar popover — it starts serving immediately. **⌘O** (File ▸ Add Folder…) opens the folder picker.
-- **Recent folders**: a folder you remove from the list shows up under *Recent folders* in the menu bar popover. One click serves it again with its old name, port and options and opens it in your browser (the last six are kept; *Clear* forgets them all).
   Also works from Terminal: `open -a FolderServe ~/my-site`.
+- **Recent folders**: a folder you remove from the list shows up under *Recent folders* in the menu bar popover. One click serves it again with its old name, port and options and opens it in your browser (the last six are kept; *Clear* forgets them all).
 - Many folders at once, each on its own port (starts at 8080, next free port if busy).
 - **Live reload**: a small script is injected into HTML pages; editing a file refreshes open tabs.
 - **SPA mode**: unknown extension-less paths return `index.html` (React Router, Vue Router, …).
