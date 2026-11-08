@@ -20,3 +20,19 @@ final class HostPolicyTests: XCTestCase {
         }
     }
 }
+
+final class LocalhostNameServerTests: XCTestCase {
+    func testAFolderIsServedUnderItsLocalhostName() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ln-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try "named".write(to: root.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let server = StaticServer(root: root, port: 0, options: ServeOptions())
+        let port = try await server.start()
+        defer { server.stop() }
+        let ok = try XCTUnwrap(RawHTTP.request(port: port, "GET /a.txt HTTP/1.1\r\nHost: my-site.localhost:\(port)\r\n\r\n"))
+        XCTAssertEqual(ok.status, 200); XCTAssertEqual(ok.text, "named")
+        let rebinding = try XCTUnwrap(RawHTTP.request(port: port, "GET /a.txt HTTP/1.1\r\nHost: my-site.localhost.evil.com:\(port)\r\n\r\n"))
+        XCTAssertEqual(rebinding.status, 403, "only names ending in .localhost are accepted")
+    }
+}

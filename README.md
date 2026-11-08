@@ -193,6 +193,13 @@ pill under the category chips says how many are hidden; click it to show them (t
 Each card has a **Finder** button (also in the right-click menu on the folder's name) that opens the folder in Finder.
 Folders that are missing show no Finder button; use Relocate… instead.
 
+## Name address
+
+Turn on **Name address** in a folder's Options to show and open it as `my-site.localhost:8080` (the folder's name, lower-cased)
+instead of `127.0.0.1:8080`. Browsers and curl send every `*.localhost` name to this Mac, so nothing needs configuring, and the
+HTTPS certificate covers `*.localhost` too. The numeric address keeps working. Only names ending in `.localhost` are accepted, which keeps
+DNS-rebinding hosts like `my-site.localhost.evil.com` out. Cookies are stored per host name, so two folders with the same name on different ports share them.
+
 ## Dropping folders
 
 While you drag a folder over the window the list dims and a landing pad appears ("Drop to start serving"). On drop
