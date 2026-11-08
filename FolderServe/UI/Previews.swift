@@ -150,6 +150,13 @@ extension PreviewData {
     let s = PreviewData.pageLoadServer()
     return RequestDetailView(line: s.page, onClose: {}).environment(s.manager).frame(width: 520, height: 600)
 }
+#Preview("Mocks and headers") {
+    let s = PreviewData.runningServer()
+    let mocks = [MockRule(method: "GET", path: "/api/me", status: 200, body: #"{"name":"Ada","roles":["admin"]}"#),
+                 MockRule(method: "POST", path: "/api/login", status: 401, body: #"{"error":"bad password"}"#, delayMs: 800)]
+    let headers = [HeaderRule(path: "*", name: "X-Environment", value: "demo")]
+    return MocksEditorView(entryID: s.id, initialMocks: mocks, initialHeaders: headers).environment(s.manager)
+}
 #Preview("Menu bar") { MenuBarView().environment(PreviewData.manager(populated: true)).frame(width: 320) }
 #Preview("Proxy editor") {
     let s = PreviewData.runningServer()

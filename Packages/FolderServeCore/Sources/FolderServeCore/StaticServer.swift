@@ -200,6 +200,17 @@ public final class StaticServer: @unchecked Sendable {
                 return
             }
         }
+        // Header rules reach every answer for the path, including proxied and mocked ones.
+        let ruleHeaders = HeaderRule.headers(for: req.path, in: currentOptions.headerRules)
+        if !ruleHeaders.isEmpty {
+            var h = connHeaders[ObjectIdentifier(conn)] ?? [:]
+            for (name, value) in ruleHeaders { h[name] = value }
+            connHeaders[ObjectIdentifier(conn)] = h
+        }
+        if let mock = currentOptions.mockRules.first(where: { $0.problem == nil && $0.matches(method: req.method, path: req.path) }) {
+            sendMock(conn, req, mock)
+            return
+        }
         if let rule = currentOptions.proxyRules.first(where: { $0.problem == nil && $0.matches(path: req.path) }) {
             proxy(conn, req, rule: rule, buffered: Data(buffered), corsOn: corsOn)
             return
@@ -231,6 +242,32 @@ public final class StaticServer: @unchecked Sendable {
                      method: req.method, path: req.path, head: isHead)
         case .file(let url):
             sendFile(conn, url: url, req: req, head: isHead, liveReload: opts.liveReload)
+        }
+    }
+
+    // MARK: - Mocks
+
+    /// Answers with the rule's fixed response (after its delay) and logs it as "Mocked".
+    private func sendMock(_ conn: NWConnection, _ req: HTTPRequest, _ rule: MockRule) {
+        let noBody = req.method == "HEAD" || rule.status == 204 || rule.status == 304
+        let body = noBody ? Data() : Data(rule.body.utf8)
+        var headers = ["Content-Length": String(Data(rule.body.utf8).count)]
+        if rule.status != 204 && rule.status != 304 { headers["Content-Type"] = rule.contentType }
+        if rule.status == 204 || rule.status == 304 { headers["Content-Length"] = nil }
+        let answer = { [weak self] in
+            guard let self else { return }
+            var entry = self.makeEntry(conn, method: req.method, path: req.path, status: rule.status, bytes: Int64(body.count),
+                                       responseHeaders: headers)
+            entry.note = "Mocked"
+            self.lockedLog(entry)
+            var out = Data(self.responseHead(conn, status: rule.status, headers: headers).utf8)
+            out.append(body)
+            self.sendFinal(conn, out)
+        }
+        if rule.delayMs > 0 {
+            queue.asyncAfter(deadline: .now() + .milliseconds(rule.delayMs), execute: answer)
+        } else {
+            answer()
         }
     }
 
