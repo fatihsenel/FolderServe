@@ -11,7 +11,13 @@ Download `FolderServe-<version>.zip` from the [latest release](https://github.co
 unzip it and drag **FolderServe.app** to your Applications folder. The app is signed with a Developer ID certificate and notarized by Apple,
 so it opens normally. It needs macOS 14 or later.
 
-To check the download, compare `shasum -a 256 FolderServe-<version>.zip` with the SHA-256 on the release page.
+Or with Homebrew:
+
+```bash
+brew install --cask fatihsenel/tap/folderserve
+```
+
+To check a manual download, compare `shasum -a 256 FolderServe-<version>.zip` with the SHA-256 on the release page.
 To build it yourself instead, see [Build](#build).
 
 ## Screenshots
