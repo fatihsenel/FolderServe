@@ -373,9 +373,9 @@ struct ActivityView: View {
                     .fill(isSelected ? Theme.accent.opacity(0.35) : hoveredID == line.id ? Color.white.opacity(0.08) : .clear))
                 .contentShape(Rectangle())
                 .onHover { inside in
-                    if inside { hoveredID = line.id; NSCursor.pointingHand.push() }
-                    else { if hoveredID == line.id { hoveredID = nil }; NSCursor.pop() }
+                    if inside { hoveredID = line.id } else if hoveredID == line.id { hoveredID = nil }
                 }
+                .handCursor()
                 .help("Show request details")
                 .onTapGesture { selectedID = isSelected ? nil : line.id; hintSeen = true; listFocused = true }
                 .accessibilityAddTraits(.isButton)
