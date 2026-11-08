@@ -3,6 +3,7 @@ import AppKit
 @MainActor
 enum AppServices {
     static let manager = ServerManager(store: JSONFileStore.default)
+    @MainActor static let updates = UpdateChecker()
 }
 
 final class FolderServeAppDelegate: NSObject, NSApplicationDelegate {
@@ -14,6 +15,7 @@ final class FolderServeAppDelegate: NSObject, NSApplicationDelegate {
         guard !Self.isRunningTests else { return }
         MainActor.assumeIsolated {
             Self.restoreServers(manager: AppServices.manager)
+            Task { await AppServices.updates.checkIfDue() }
             if SplashSettings.enabled && !Self.launchedAsLoginItem { SplashController.shared.show(gatingMainWindow: true) }
         }
     }

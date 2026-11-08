@@ -13,15 +13,18 @@ struct MainWindow: View {
     var body: some View {
         HStack(spacing: 0) {
             SidebarView(selection: $selection)
-            Group {
-                switch selection {
-                case .servers: ServersView()
-                case .activity: ActivityView()
-                case .settings: SettingsView()
+            VStack(spacing: 0) {
+                UpdateBannerHost().padding(.horizontal, 28).padding(.top, 12)
+                Group {
+                    switch selection {
+                    case .servers: ServersView()
+                    case .activity: ActivityView()
+                    case .settings: SettingsView()
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 12)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.top, 12)
         }
         .background(Theme.background(scheme).ignoresSafeArea())
         .frame(minWidth: 860, minHeight: 560)

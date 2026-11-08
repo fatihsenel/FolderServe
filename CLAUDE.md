@@ -94,3 +94,8 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
 - Swift treats `"\r\n"` as a single `Character`, so `string.contains("\r")` does not match it: check `unicodeScalars` when guarding
   against header injection.
 - The pointing-hand cursor uses `.handCursor()` (system-owned), never `NSCursor.push()`/`pop()`, which can leave the hand stuck.
+- **Update check** (`UpdateChecker`, `UpdateViews.swift`): asks GitHub's latest-release API once a day, shows a banner / Settings row / menu item, and
+  never installs anything. It is optional in the environment (`@Environment(\.updates)`, nil in previews and tests), so views using it need no injection.
+  The release page address from GitHub's answer must be on github.com under this project before it is ever opened. Sparkle (in-place updates) was
+  considered and left out on purpose: the sandbox needs extra XPC entitlements, and it needs a signing key and an appcast.
+
