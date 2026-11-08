@@ -86,6 +86,20 @@ final class LiveReloadIntegrationTests: XCTestCase {
         XCTAssertFalse(got.contains("data: reload"), got)
     }
 
+    func testSaveViaDifferentlyNamedTemporaryFileStillSwapsStyles() async throws {
+        try write("index.html", "<body></body>")
+        let css = try write("a.css", "body{color:red}")
+        let port = try await start()
+        // The temporary name older macOS versions use for atomic writes (the CI runners): it has no ".css" in it.
+        let temp = root.appendingPathComponent(".dat.nosync1234.AbCdEf")
+        let got = try eventAfter(port: port, needle: "data: ") {
+            try "body{color:blue}".write(to: temp, atomically: false, encoding: .utf8)
+            _ = try fm.replaceItemAt(css, withItemAt: temp)
+        }
+        XCTAssertTrue(got.contains("data: css"), got)
+        XCTAssertFalse(got.contains("data: reload"), got)
+    }
+
     func testChangingHTMLStillReloadsThePage() async throws {
         let html = try write("index.html", "<body>1</body>")
         let port = try await start()

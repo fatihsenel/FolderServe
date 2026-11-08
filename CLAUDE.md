@@ -103,3 +103,5 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
 - **Live reload** (`FolderWatcher` → `ReloadKind.classify` → `ReloadHub` → `ReloadScript`): the watcher passes the changed paths; a burst of only `.css` files sends `data: css`
   (pages re-fetch their same-origin `<link rel=stylesheet>` with a `_fs` query and keep their state), anything else sends `data: reload` (`location.reload()`).
   The script must keep reloading on any message other than `css`, so pages that still run an older script keep working.
+  Editors save through a temporary file whose name varies by editor and macOS (`a.css.sb-…`, `.dat.nosync…`), so `classify` ignores paths that no longer exist
+  (unless they look like a page or script) and needs at least one stylesheet that still does. CI runs an older macOS than development machines: test with explicit temp names.
