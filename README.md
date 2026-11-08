@@ -1,5 +1,7 @@
 # FolderServe
 
+[![CI](https://github.com/fatihsenel/FolderServe/actions/workflows/ci.yml/badge.svg)](https://github.com/fatihsenel/FolderServe/actions/workflows/ci.yml)
+
 A native macOS app (window + menu bar) that serves any folder over HTTP on localhost — for previewing
 static sites and single page apps, with live reload.
 
