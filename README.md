@@ -5,6 +5,15 @@
 A native macOS app (window + menu bar) that serves any folder over HTTP on localhost — for previewing
 static sites and single page apps, with live reload.
 
+## Install
+
+Download `FolderServe-<version>.zip` from the [latest release](https://github.com/fatihsenel/FolderServe/releases/latest),
+unzip it and drag **FolderServe.app** to your Applications folder. The app is signed with a Developer ID certificate and notarized by Apple,
+so it opens normally. It needs macOS 14 or later.
+
+To check the download, compare `shasum -a 256 FolderServe-<version>.zip` with the SHA-256 on the release page.
+To build it yourself instead, see [Build](#build).
+
 ## Screenshots
 
 Rendered from the app's built-in sample data (no real folders or requests).
