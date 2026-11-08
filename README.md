@@ -7,7 +7,9 @@ static sites and single page apps, with live reload.
 
 Rendered from the app's built-in sample data (no real folders or requests).
 
-| Servers | Menu bar |
+<img src="docs/screenshots/servers-list.png" alt="Servers screen with five sample folders: running, folder missing, port in use and finding a port" width="720">
+
+| Empty state | Menu bar |
 |---|---|
 | ![Empty Servers screen with Add Folder and Choose Folder buttons](docs/screenshots/servers-empty.png) | ![Menu bar window listing five servers](docs/screenshots/menu-bar.png) |
 
