@@ -3,6 +3,7 @@
 #
 #   scripts/release.sh             build, sign, notarize, staple and zip into build/release/
 #   scripts/release.sh --publish   the same, then create a GitHub release with the zip (public!)
+#   NOTARIZE=0 scripts/release.sh  build and sign only (to test the signing half); never publishes
 #
 # One-time setup (see README "Releasing"): a "Developer ID Application" certificate for the team below in your login
 # keychain, and a notarytool profile created with `xcrun notarytool store-credentials`.
@@ -11,15 +12,20 @@ set -euo pipefail
 TEAM_ID="${TEAM_ID:-XC7ZHWDHCA}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-folderserve-notary}"
 PUBLISH=false
+NOTARIZE="${NOTARIZE:-1}"
 [ "${1:-}" = "--publish" ] && PUBLISH=true
+[ "$NOTARIZE" = "0" ] && PUBLISH=false
 
 cd "$(dirname "$0")/.."
 VERSION=$(grep -E '^\s*MARKETING_VERSION:' project.yml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
-BUILD_DIR="build/release"
+# Build outside the repo: folders synced by iCloud (Desktop, Documents) get Finder metadata (com.apple.FinderInfo) on
+# their files, and codesign refuses an app that carries it. Only the finished zip is copied into the repo.
+BUILD_DIR="${RELEASE_WORK_DIR:-${TMPDIR:-/tmp}/folderserve-release}"
+OUT_DIR="build/release"
 ARCHIVE="$BUILD_DIR/FolderServe.xcarchive"
 EXPORT_DIR="$BUILD_DIR/export"
 APP="$EXPORT_DIR/FolderServe.app"
-ZIP="$BUILD_DIR/FolderServe-$VERSION.zip"
+ZIP="$OUT_DIR/FolderServe-$VERSION.zip"
 
 fail() { echo "error: $*" >&2; exit 1; }
 
@@ -27,7 +33,7 @@ echo "== Checking prerequisites"
 IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | grep "($TEAM_ID)" | head -1 | sed -E 's/.*"(.*)".*/\1/' || true)
 [ -n "$IDENTITY" ] || fail "no 'Developer ID Application' certificate for team $TEAM_ID in your keychain.
   Create it as the Account Holder (Xcode > Settings > Accounts > Manage Certificates > + > Developer ID Application)."
-xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 \
+[ "$NOTARIZE" = "0" ] || xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 \
   || fail "notarytool profile '$NOTARY_PROFILE' not found or not working. Create it with:
   xcrun notarytool store-credentials \"$NOTARY_PROFILE\" --apple-id <your Apple ID> --team-id $TEAM_ID"
 command -v xcodegen >/dev/null || fail "xcodegen is not installed (brew install xcodegen)"
@@ -41,7 +47,7 @@ echo "   version:  $VERSION"
 echo "== Generating the project"
 xcodegen generate >/dev/null
 
-rm -rf "$BUILD_DIR"; mkdir -p "$BUILD_DIR"
+rm -rf "$BUILD_DIR"; mkdir -p "$BUILD_DIR" "$OUT_DIR"
 
 echo "== Archiving (Release)"
 xcodebuild archive -scheme FolderServe -configuration Release -destination 'generic/platform=macOS' \
@@ -68,15 +74,22 @@ xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath "$EXPORT_DIR" \
 codesign --verify --deep --strict --verbose=2 "$APP"
 codesign -dv "$APP" 2>&1 | grep -E "Authority=Developer ID Application|TeamIdentifier|flags=.*runtime" || true
 
+if [ "$NOTARIZE" = "0" ]; then
+  echo "== Skipping notarization (NOTARIZE=0): the app is signed but not notarized, so do not distribute it"
+  echo "Signed app: $APP"
+  codesign --verify --deep --strict "$APP" && echo "   signature verifies"
+  exit 0
+fi
+
 echo "== Notarizing (this can take a few minutes)"
-ditto -c -k --keepParent "$APP" "$BUILD_DIR/notarize.zip"
+ditto -c -k --keepParent --norsrc --noextattr "$APP" "$BUILD_DIR/notarize.zip"
 xcrun notarytool submit "$BUILD_DIR/notarize.zip" --keychain-profile "$NOTARY_PROFILE" --wait
 xcrun stapler staple "$APP"
 xcrun stapler validate "$APP"
 spctl --assess --type execute --verbose=2 "$APP"
 
 echo "== Packaging"
-ditto -c -k --keepParent "$APP" "$ZIP"
+ditto -c -k --keepParent --norsrc --noextattr "$APP" "$ZIP"
 SHA=$(shasum -a 256 "$ZIP" | awk '{print $1}')
 echo "$SHA  $(basename "$ZIP")" > "$ZIP.sha256"
 echo "   $ZIP"
