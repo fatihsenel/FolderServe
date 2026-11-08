@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 enum Theme {
     static let accent = Color(red: 0.42, green: 0.40, blue: 1.0)
@@ -37,6 +38,35 @@ struct CardStyle: ViewModifier {
 
 extension View {
     func card() -> some View { modifier(CardStyle()) }
+
+    /// A pointing-hand cursor over this view. The system owns it (no push/pop pairs), so it cannot get stuck
+    /// when the view disappears or the window changes while the mouse is over it.
+    func handCursor() -> some View { modifier(HandCursor()) }
+}
+
+private struct HandCursor: ViewModifier {
+    @Environment(\.isSnapshotRendering) private var isSnapshot
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.pointerStyle(.link)
+        } else if isSnapshot {
+            content   // ImageRenderer cannot draw AppKit-backed views
+        } else {
+            content.overlay(CursorRectView().allowsHitTesting(false))
+        }
+    }
+}
+
+/// macOS 14: a cursor rect covering the view. AppKit applies and removes it by itself.
+private struct CursorRectView: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { RectView() }
+    func updateNSView(_ nsView: NSView, context: Context) { nsView.window?.invalidateCursorRects(for: nsView) }
+
+    private final class RectView: NSView {
+        override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
 }
 
 private struct SnapshotRenderingKey: EnvironmentKey { static let defaultValue = false }

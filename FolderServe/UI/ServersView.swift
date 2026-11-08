@@ -122,10 +122,8 @@ struct AddFolderButton: View {
             .shadow(color: Theme.accent.opacity(hovering ? 0.65 : 0), radius: 14, y: 4)
         }
         .buttonStyle(AddFolderButtonStyle(hovering: hovering, reduceMotion: reduceMotion))
-        .onHover { inside in
-            hovering = inside
-            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-        }
+        .onHover { hovering = $0 }
+        .handCursor()
         .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.62), value: hovering)
         .accessibilityLabel(title.replacingOccurrences(of: "…", with: ""))
     }
