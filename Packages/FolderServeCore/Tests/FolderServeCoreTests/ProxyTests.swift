@@ -263,6 +263,41 @@ final class ProxyIntegrationTests: XCTestCase {
         XCTAssertEqual(upstream.last?.headers["x-other"], "keep")
     }
 
+    // MARK: chunked request bodies
+
+    private func chunked(_ port: UInt16, chunks: String, extra: String = "") throws -> RawResponse {
+        let raw = "POST /api/upload HTTP/1.1\r\nHost: 127.0.0.1:\(port)\r\nTransfer-Encoding: chunked\r\n\(extra)\r\n" + chunks
+        return try XCTUnwrap(RawHTTP.request(port: port, raw))
+    }
+
+    func testChunkedBodyIsJoinedAndForwardedWithAContentLength() async throws {
+        let port = try await start()
+        let r = try chunked(port, chunks: "5\r\nhello\r\n7\r\n, world\r\n0\r\n\r\n")
+        XCTAssertEqual(r.status, 200)
+        XCTAssertEqual(r.text, "POST /api/upload body=hello, world")
+        XCTAssertEqual(upstream.last?.headers["content-length"], "12")
+        XCTAssertNotEqual(upstream.last?.headers["transfer-encoding"], "chunked", "forwarded with a length, not re-chunked")
+    }
+
+    func testChunkExtensionsAndTrailersAreAccepted() async throws {
+        let port = try await start()
+        let r = try chunked(port, chunks: "3;name=value\r\nabc\r\n0\r\nX-Trailer: 1\r\n\r\n")
+        XCTAssertEqual(r.status, 200)
+        XCTAssertEqual(r.text, "POST /api/upload body=abc")
+    }
+
+    func testMalformedChunkedBodyIsA400() async throws {
+        let port = try await start()
+        let r = try chunked(port, chunks: "zz\r\nhello\r\n0\r\n\r\n")
+        XCTAssertEqual(r.status, 400)
+    }
+
+    func testOtherTransferEncodingsAreStillRefused() async throws {
+        let port = try await start()
+        let raw = "POST /api/upload HTTP/1.1\r\nHost: 127.0.0.1:\(port)\r\nTransfer-Encoding: gzip, chunked\r\n\r\n0\r\n\r\n"
+        XCTAssertEqual(try XCTUnwrap(RawHTTP.request(port: port, raw)).status, 501)
+    }
+
     func testLargeBodyArrivesIntact() async throws {
         let port = try await start()
         let big = String(repeating: "x", count: 300_000)

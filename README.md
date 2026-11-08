@@ -139,7 +139,7 @@ Example: `/uiapi` → `https://localhost:5003` sends `/uiapi/Account/Login` to
 - Requests from other origins (`Origin` or `Sec-Fetch-Site` not same-origin) get 403 unless CORS is on for the
   folder, so a web page cannot drive your backend through the proxy.
 - WebSockets (and other `Upgrade` connections) pass through a proxy rule as a plain byte tunnel, so dev-server hot reload and SignalR work. The cross-origin guard applies to them too.
-- Not supported: chunked request bodies, HTTP/2 to the browser.
+- Chunked request bodies (`Transfer-Encoding: chunked`) are joined and forwarded to the target with a `Content-Length`; `Expect: 100-continue` is answered. Other transfer codings (for example `gzip, chunked`) and HTTP/2 to the browser are not supported. The body limit is 32 MB.
 - The app allows plain-http targets (`NSAllowsArbitraryLoads`), because the target is whatever you configure.
 
 ## Activity
