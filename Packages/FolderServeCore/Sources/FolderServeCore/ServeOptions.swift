@@ -17,16 +17,12 @@ public struct ServeOptions: Codable, Equatable, Sendable {
     /// Listen on the local network too (phones, other computers). Off by default: the folder, and any proxy
     /// rule, is then reachable by everyone on the same network.
     public var shareOnNetwork = false
-    /// Fixed answers for matching requests (tried before the proxy and the folder).
-    public var mockRules: [MockRule] = []
-    /// Response headers added to matching paths.
-    public var headerRules: [HeaderRule] = []
     /// Show and open the folder as `name.localhost` instead of `127.0.0.1` (the server accepts both either way).
     public var friendlyHost = false
 
     public init(spaMode: Bool = true, liveReload: Bool = true, serveDotfiles: Bool = false, cors: Bool = false,
                 proxyRules: [ProxyRule] = [], caching: Bool = false, https: Bool = false, shareOnNetwork: Bool = false,
-                mockRules: [MockRule] = [], headerRules: [HeaderRule] = [], friendlyHost: Bool = false) {
+                friendlyHost: Bool = false) {
         self.spaMode = spaMode
         self.liveReload = liveReload
         self.serveDotfiles = serveDotfiles
@@ -35,8 +31,6 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         self.caching = caching
         self.https = https
         self.shareOnNetwork = shareOnNetwork
-        self.mockRules = mockRules
-        self.headerRules = headerRules
         self.friendlyHost = friendlyHost
     }
 
@@ -51,8 +45,6 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         caching = try c.decodeIfPresent(Bool.self, forKey: .caching) ?? false
         https = try c.decodeIfPresent(Bool.self, forKey: .https) ?? false
         shareOnNetwork = try c.decodeIfPresent(Bool.self, forKey: .shareOnNetwork) ?? false
-        mockRules = try c.decodeIfPresent([MockRule].self, forKey: .mockRules) ?? []
-        headerRules = try c.decodeIfPresent([HeaderRule].self, forKey: .headerRules) ?? []
         friendlyHost = try c.decodeIfPresent(Bool.self, forKey: .friendlyHost) ?? false
     }
 }
