@@ -19,6 +19,8 @@ Rendered from the app's built-in sample data (no real folders or requests).
 
 ![Foldable, coloured JSON tree](docs/screenshots/json-tree.png)
 
+<img src="docs/screenshots/settings.png" alt="Settings: start servers at launch, serve dotfiles, launch at login, splash screen" width="720">
+
 ## Features
 
 - Drop a folder on the window, the Dock icon or the menu bar popover — it starts serving immediately. **⌘O** (File ▸ Add Folder…) opens the folder picker.
