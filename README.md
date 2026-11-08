@@ -12,6 +12,8 @@ body, and can replay it, copy it as cURL or export it as a HAR file.
 several folders open all day, want them back with one click after a restart, test on your phone, put an API behind a proxy,
 or need to know why a request failed — without opening a terminal.
 
+<img src="docs/screenshots/demo.gif" alt="Animation: the servers list, the menu bar with recent folders, a request's details with Copy as cURL and Replay, and a foldable JSON response" width="800">
+
 ## Install
 
 Download `FolderServe-<version>.zip` from the [latest release](https://github.com/fatihsenel/FolderServe/releases/latest),
