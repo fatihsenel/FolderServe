@@ -124,9 +124,10 @@ public final class StaticServer: @unchecked Sendable {
     // MARK: - Live reload
 
     private func startLiveReload() {
-        let w = FolderWatcher(root: root, debounce: 0.1) { [weak self] in
+        let w = FolderWatcher(root: root, debounce: 0.1) { [weak self] (paths: [String]) in
             guard let self else { return }
-            self.queue.async { if self.currentOptions.liveReload { self.hub.broadcast() } }
+            let kind = ReloadKind.classify(paths: paths)
+            self.queue.async { if self.currentOptions.liveReload { self.hub.broadcast(kind) } }
         }
         w.start()
         watcher = w

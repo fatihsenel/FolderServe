@@ -100,3 +100,6 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
   considered and left out on purpose: the sandbox needs extra XPC entitlements, and it needs a signing key and an appcast.
 - **Recent folders** (`ServerManager.recents`, `MenuBarRecents`): `remove(_:)` keeps the removed `ServerEntry` (bookmark included) in `recents.json` (newest first, max 6);
   `reopenRecent(_:)` serves it again and `add(folder:)` also restores a matching recent's name, port and options. Tests pass no `recentsStore`, so nothing is written to disk.
+- **Live reload** (`FolderWatcher` → `ReloadKind.classify` → `ReloadHub` → `ReloadScript`): the watcher passes the changed paths; a burst of only `.css` files sends `data: css`
+  (pages re-fetch their same-origin `<link rel=stylesheet>` with a `_fs` query and keep their state), anything else sends `data: reload` (`location.reload()`).
+  The script must keep reloading on any message other than `css`, so pages that still run an older script keep working.

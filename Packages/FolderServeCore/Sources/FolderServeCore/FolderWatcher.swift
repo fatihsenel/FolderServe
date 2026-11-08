@@ -5,15 +5,22 @@ import CoreServices
 public final class FolderWatcher: @unchecked Sendable {
     private let root: URL
     private let debounce: TimeInterval
-    private let onChange: @Sendable () -> Void
+    private let onChange: @Sendable ([String]) -> Void
     private let queue = DispatchQueue(label: "folderserve.watcher")
     private var stream: FSEventStreamRef?
     private var pending: DispatchWorkItem?
+    /// Paths changed since the last callback (only touched on `queue`).
+    private var pendingPaths = Set<String>()
 
-    public init(root: URL, debounce: TimeInterval = 0.1, onChange: @escaping @Sendable () -> Void) {
+    /// `onChange` receives the paths that changed in the burst (without ignored ones such as `.git`).
+    public init(root: URL, debounce: TimeInterval = 0.1, onChange: @escaping @Sendable ([String]) -> Void) {
         self.root = root.resolvingSymlinksInPath()
         self.debounce = debounce
         self.onChange = onChange
+    }
+
+    public convenience init(root: URL, debounce: TimeInterval = 0.1, onChange: @escaping @Sendable () -> Void) {
+        self.init(root: root, debounce: debounce, onChange: { (_: [String]) in onChange() })
     }
 
     deinit { stop() }
@@ -42,6 +49,7 @@ public final class FolderWatcher: @unchecked Sendable {
         queue.sync {
             pending?.cancel()
             pending = nil
+            pendingPaths.removeAll()
             guard let s = stream else { return }
             FSEventStreamStop(s)
             FSEventStreamInvalidate(s)
@@ -52,9 +60,16 @@ public final class FolderWatcher: @unchecked Sendable {
 
     // Runs on `queue` (the stream's dispatch queue).
     private func handle(_ paths: [String]) {
-        guard paths.contains(where: { !Self.isIgnored($0) }) else { return }
+        let relevant = paths.filter { !Self.isIgnored($0) }
+        guard !relevant.isEmpty else { return }
+        pendingPaths.formUnion(relevant)
         pending?.cancel()
-        let item = DispatchWorkItem { [onChange] in onChange() }
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let changed = Array(self.pendingPaths).sorted()
+            self.pendingPaths.removeAll()
+            self.onChange(changed)
+        }
         pending = item
         queue.asyncAfter(deadline: .now() + debounce, execute: item)
     }

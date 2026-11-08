@@ -1,6 +1,22 @@
 import Foundation
 import Network
 
+/// What open pages should do after a change on disk.
+public enum ReloadKind: Equatable, Sendable {
+    /// Reload the whole page.
+    case full
+    /// Only stylesheets changed: pages re-fetch their linked stylesheets and keep their state (scroll position, forms, open menus).
+    case styles
+
+    /// `.styles` when every changed path is a `.css` file, otherwise `.full` (also for an empty list, and for anything we cannot tell).
+    public static func classify(paths: [String]) -> ReloadKind {
+        guard !paths.isEmpty, paths.allSatisfy({ URL(fileURLWithPath: $0).pathExtension.lowercased() == "css" }) else { return .full }
+        return .styles
+    }
+
+    var message: String { self == .styles ? "data: css\n\n" : "data: reload\n\n" }
+}
+
 /// Tracks open Server-Sent-Events connections. All access happens on the server's serial queue.
 final class ReloadHub {
     private var connections: [ObjectIdentifier: NWConnection] = [:]
@@ -11,7 +27,7 @@ final class ReloadHub {
         watchForClose(conn, id: id)
     }
 
-    func broadcast() { send(Data("data: reload\n\n".utf8)) }
+    func broadcast(_ kind: ReloadKind = .full) { send(Data(kind.message.utf8)) }
 
     func ping() { send(Data(": ping\n\n".utf8)) }
 

@@ -57,6 +57,44 @@ final class LiveReloadIntegrationTests: XCTestCase {
         return String(decoding: acc, as: UTF8.self)
     }
 
+    /// Waits for the watcher's stream to settle, then returns what an open page receives after `change` ran.
+    private func eventAfter(port: UInt16, needle: String, change: () throws -> Void) throws -> String {
+        let fd = try openSSE(port: port)
+        defer { close(fd) }
+        Thread.sleep(forTimeInterval: 1.0)   // FSEvents may still report the fixture files written before the stream started
+        _ = readSSE(fd, until: "never-appears", timeout: 0.3)
+        try change()
+        return readSSE(fd, until: needle, timeout: 4)
+    }
+
+    func testChangingOnlyCSSTellsPagesToSwapStyles() async throws {
+        try write("index.html", "<body></body>")
+        let css = try write("a.css", "body{color:red}")
+        let port = try await start()
+        let got = try eventAfter(port: port, needle: "data: ") { try "body{color:blue}".write(to: css, atomically: false, encoding: .utf8) }
+        XCTAssertTrue(got.contains("data: css"), got)
+        XCTAssertFalse(got.contains("data: reload"), got)
+    }
+
+    func testChangingHTMLStillReloadsThePage() async throws {
+        let html = try write("index.html", "<body>1</body>")
+        let port = try await start()
+        let got = try eventAfter(port: port, needle: "data: ") { try "<body>2</body>".write(to: html, atomically: false, encoding: .utf8) }
+        XCTAssertTrue(got.contains("data: reload"), got)
+    }
+
+    func testChangingCSSAndHTMLTogetherReloadsThePage() async throws {
+        let html = try write("index.html", "<body>1</body>")
+        let css = try write("a.css", "body{}")
+        let port = try await start()
+        let got = try eventAfter(port: port, needle: "data: reload") {
+            try "<body>2</body>".write(to: html, atomically: false, encoding: .utf8)
+            try "body{color:blue}".write(to: css, atomically: false, encoding: .utf8)
+        }
+        XCTAssertTrue(got.contains("data: reload"), got)
+        XCTAssertFalse(got.contains("data: css"), got)
+    }
+
     func testHTMLGetsScriptWithCorrectContentLength() async throws {
         try write("index.html", "<html><body>hi</body></html>")
         let port = try await start()
