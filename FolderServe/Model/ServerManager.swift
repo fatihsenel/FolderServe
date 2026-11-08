@@ -226,6 +226,22 @@ final class ServerManager {
         setOptions(id, options)
     }
 
+    /// Replaces the folder's fake responses (applied to a running server immediately).
+    func setMockRules(_ id: UUID, _ rules: [MockRule]) {
+        guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
+        var options = entries[i].options
+        options.mockRules = rules
+        setOptions(id, options)
+    }
+
+    /// Replaces the folder's extra response headers (applied to a running server immediately).
+    func setHeaderRules(_ id: UUID, _ rules: [HeaderRule]) {
+        guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
+        var options = entries[i].options
+        options.headerRules = rules
+        setOptions(id, options)
+    }
+
     static let maxNameLength = 60
 
     /// Trimmed, length-limited label; nil (= use the folder name) when empty or equal to the folder name.
