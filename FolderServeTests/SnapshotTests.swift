@@ -175,20 +175,6 @@ final class SnapshotTests: XCTestCase {
         try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-proxy-editor.png"))
     }
 
-    func testRenderMocksEditorSnapshot() throws {
-        let manager = PreviewData.manager(populated: true)
-        let entry = try XCTUnwrap(manager.entries.first)
-        let mocks = [MockRule(method: "GET", path: "/api/me", status: 200, body: #"{"name":"Ada","roles":["admin"]}"#),
-                     MockRule(method: "POST", path: "/api/login", status: 401, body: #"{"error":"bad password"}"#, delayMs: 800)]
-        let view = MocksEditorView(entryID: entry.id, initialMocks: mocks, initialHeaders: [HeaderRule(path: "*", name: "X-Environment", value: "demo")])
-            .environment(manager).environment(\.colorScheme, .dark).environment(\.isSnapshotRendering, true)
-            .background(Color(white: 0.16))
-        let renderer = ImageRenderer(content: view); renderer.scale = 2
-        let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
-        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
-        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-mocks-editor.png"))
-    }
-
     func testRenderOptionsPopoverSnapshot() throws {
         let manager = PreviewData.manager(populated: true)
         let id = try XCTUnwrap(manager.entries.first?.id)

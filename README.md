@@ -200,17 +200,6 @@ whole (bodies are only kept for proxied calls, up to 32 KB). `Authorization` and
 Each card has a **Finder** button (also in the right-click menu on the folder's name) that opens the folder in Finder.
 Folders that are missing show no Finder button; use Relocate… instead.
 
-## Mocks and extra headers
-
-The **Mocks** button on a folder's card opens two lists:
-
-- **Fake responses:** a method (or any), a path (`/api/me` exactly, or `/api/*` for a prefix), a status, a content type, a body and an optional delay
-  in milliseconds. A matching request gets that answer instead of the file or the proxy target, so a page can be tried
-  without its backend. The first matching rule wins; answers are logged as **Mocked**.
-- **Extra headers:** a header name and value added to every answer for matching paths (`*` for all): files, proxied calls and fake responses alike.
-
-Rules apply to a running server immediately. Framing headers (`Content-Length`, `Transfer-Encoding`, `Connection`, `Host`) cannot be changed.
-
 ## Name address
 
 Turn on **Name address** in a folder's Options to show and open it as `my-site.localhost:8080` (the folder's name, lower-cased)

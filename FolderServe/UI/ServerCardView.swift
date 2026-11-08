@@ -81,14 +81,6 @@ struct ServerCardView: View {
             .popover(isPresented: $showingProxy, arrowEdge: .bottom) {
                 ProxyEditorView(entryID: entryID, initialRules: entry.options.proxyRules)
             }
-            Button { showingMocks = true } label: {
-                let n = entry.options.activeMockCount
-                Label(n == 0 ? "Mocks" : "Mocks · \(n)", systemImage: "theatermasks")
-            }
-            .help("Fake responses and extra headers, for trying a page without its backend")
-            .popover(isPresented: $showingMocks, arrowEdge: .bottom) {
-                MocksEditorView(entryID: entryID, initialMocks: entry.options.mockRules, initialHeaders: entry.options.headerRules)
-            }
             Button { showingOptions = true } label: {
                 let n = entry.options.enabledExtrasCount
                 Label(n == 0 ? "Options" : "Options · \(n)", systemImage: "slider.horizontal.3")
@@ -116,7 +108,6 @@ struct ServerCardView: View {
     @State private var showingProxy = false
     @State private var showingShare = false
     @State private var showingOptions = false
-    @State private var showingMocks = false
     @State private var outsideClick = OutsideClickMonitor()
 
     @ViewBuilder private func title(for entry: ServerEntry) -> some View {
