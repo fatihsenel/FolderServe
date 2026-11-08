@@ -65,7 +65,8 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
 
 ## Git workflow
 
-- There is **no remote**: everything lives in this local repo. Do not assume a push target.
+- `origin` is the public GitHub repo `fatihsenel/FolderServe` (`main` only; feature branches stay local). Push `main` after a merge
+  only when asked. Everything in the history is public: no secrets, real paths or real request data in code, tests or docs.
 - Work on a branch (`feat/…`, `fix/…`), commit, then merge into `main` with `--no-ff` and a message like
   `Merge feat/x: what it does`. Commit messages are `feat(ui): …` / `fix(ui): …` with a short body.
 - Adding a new source file, or switching to a branch that has different files, means regenerating the project

@@ -131,6 +131,18 @@ final class SnapshotTests: XCTestCase {
         try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-activity-slowest.png"))
     }
 
+    /// All sample servers in one tall window, for the README.
+    func testRenderServersListSnapshot() throws {
+        let view = MainWindow(initialSelection: .servers)
+            .environment(PreviewData.manager(populated: true))
+            .environment(\.colorScheme, .dark).environment(\.isSnapshotRendering, true)
+            .frame(width: 1000, height: 1300)
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-servers-list.png"))
+    }
+
     func testRenderMainWindowSnapshots() throws {
         try render("empty-dark", populated: false, scheme: .dark)
         try render("populated-dark", populated: true, scheme: .dark)

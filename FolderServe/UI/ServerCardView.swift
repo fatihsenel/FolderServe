@@ -4,6 +4,7 @@ import FolderServeCore
 
 struct ServerCardView: View {
     @Environment(ServerManager.self) private var manager
+    @Environment(\.isSnapshotRendering) private var isSnapshot
     let entryID: UUID
 
     private var entry: ServerEntry? { manager.entries.first { $0.id == entryID } }
@@ -189,9 +190,17 @@ struct ServerCardView: View {
         case .finding(let search):
             PortScanView(search: search)
         case .running(let port):
+            let urlText = manager.url(for: entryID)?.absoluteString ?? "http://127.0.0.1:\(String(port))/"
+            if isSnapshot {
+                // ImageRenderer draws link-style buttons as a yellow bar, so screenshots get plain text.
+                HStack(spacing: 8) {
+                    Text(urlText).font(.system(.callout, design: .monospaced)).foregroundStyle(Theme.accent)
+                    Image(systemName: "doc.on.doc").font(.system(size: 12))
+                }
+            } else {
             HStack(spacing: 8) {
                 Button { open() } label: {
-                    Text(manager.url(for: entryID)?.absoluteString ?? "http://127.0.0.1:\(String(port))/").font(.system(.callout, design: .monospaced))
+                    Text(urlText).font(.system(.callout, design: .monospaced))
                 }.buttonStyle(.link)
                 Button { copyURL() } label: { Image(systemName: "doc.on.doc").font(.system(size: 12)) }
                     .buttonStyle(.borderless).help("Copy URL").accessibilityLabel("Copy URL")
@@ -200,6 +209,7 @@ struct ServerCardView: View {
                         .buttonStyle(.borderless).help("Open this folder on your phone").accessibilityLabel("Show QR code")
                         .popover(isPresented: $showingShare, arrowEdge: .bottom) { SharePopoverView(entryID: entryID) }
                 }
+            }
             }
         case .stopped:
             Text("Stopped").font(.callout).foregroundStyle(.secondary)
