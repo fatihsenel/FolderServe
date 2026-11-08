@@ -53,25 +53,46 @@ struct ActivityView: View {
         return searchedLines.filter { $0.entry.category == c }.count
     }
 
+    /// Title and controls. When the window is narrow the controls drop to their own row and shrink (icon-only buttons).
+    private var header: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) { title; Spacer(minLength: 12); controls(compact: false) }
+            VStack(alignment: .leading, spacing: 10) {
+                title
+                HStack(spacing: 10) { controls(compact: false) }
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                title
+                HStack(spacing: 10) { controls(compact: true) }
+            }
+        }
+    }
+
+    private var title: some View {
+        Text("Activity").font(.system(size: 30, weight: .bold, design: .rounded)).lineLimit(1).fixedSize()
+    }
+
+    @ViewBuilder private func controls(compact: Bool) -> some View {
+        searchField(width: compact ? 150 : 220)
+        sortMenu
+        Picker("Server", selection: $filter) {
+            Text("All servers").tag(UUID?.none)
+            ForEach(manager.entries) { Text($0.displayName).tag(UUID?.some($0.id)) }
+        }
+        .frame(width: compact ? 150 : 200)
+        Button { exportHAR() } label: { Label("Export", systemImage: "square.and.arrow.up") }
+            .labelStyle(CompactLabelStyle(iconOnly: compact))
+            .disabled(lines.isEmpty)
+            .help("Save the listed requests, with their bodies where known, as a HAR file that browser DevTools can open")
+        Button { manager.clearLog(for: filter); selectedID = nil } label: { Label("Clear", systemImage: "trash") }
+            .labelStyle(CompactLabelStyle(iconOnly: compact))
+            .disabled(allServerLines.isEmpty)
+            .help(filter == nil ? "Clear the activity of all servers" : "Clear this server's activity")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Activity").font(.system(size: 30, weight: .bold, design: .rounded))
-                Spacer()
-                searchField
-                sortMenu
-                Picker("Server", selection: $filter) {
-                    Text("All servers").tag(UUID?.none)
-                    ForEach(manager.entries) { Text($0.displayName).tag(UUID?.some($0.id)) }
-                }
-                .frame(width: 200)
-                Button { exportHAR() } label: { Label("Export", systemImage: "square.and.arrow.up") }
-                    .disabled(lines.isEmpty)
-                    .help("Save the listed requests, with their bodies where known, as a HAR file that browser DevTools can open")
-                Button { manager.clearLog(for: filter); selectedID = nil } label: { Label("Clear", systemImage: "trash") }
-                    .disabled(allServerLines.isEmpty)
-                    .help(filter == nil ? "Clear the activity of all servers" : "Clear this server's activity")
-            }
+            header
             categoryChips
             GeometryReader { geo in
                 let selected = selectedLine
@@ -250,7 +271,7 @@ struct ActivityView: View {
     }
 
     /// Filters the list by method, path, status, note or type. Esc or × clears it.
-    private var searchField: some View {
+    private func searchField(width: CGFloat) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
             if isSnapshot {
@@ -273,7 +294,7 @@ struct ActivityView: View {
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
-        .frame(width: 220)
+        .frame(width: width)
         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.quaternary.opacity(0.6)))
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
         .help("Type words such as “post login 200”: a request is listed when each word matches its method, path, status, note or type")
@@ -420,5 +441,14 @@ struct ActivityView: View {
         case 400..<500: return Theme.warning
         default: return Theme.failed
         }
+    }
+}
+
+
+/// A label that shows only its icon when there is no room (the title stays as the accessibility label and tooltip).
+private struct CompactLabelStyle: LabelStyle {
+    let iconOnly: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        if iconOnly { configuration.icon } else { Label(configuration) }
     }
 }
