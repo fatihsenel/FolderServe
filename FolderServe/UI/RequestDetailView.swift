@@ -169,6 +169,8 @@ struct RequestDetailView: View {
                 let type = entry.requestHeaders.first { $0.name == "content-type" }?.value
                 if !entry.requestBodyTruncated, let root = Self.jsonRoot(body) {
                     jsonBody(root, text: Self.displayText(body, contentType: type), copyable: true)
+                } else if !entry.requestBodyTruncated, let xml = XMLTreeParser.parse(body, contentType: type) {
+                    xmlBody(xml, text: String(decoding: body, as: UTF8.self))
                 } else {
                     bodyText(Self.displayText(body, contentType: type), truncated: entry.requestBodyTruncated, copyable: true)
                 }
@@ -205,6 +207,8 @@ struct RequestDetailView: View {
             } else if Self.isText(data, contentType: type) {
                 if !content.truncated, let root = Self.jsonRoot(data) {
                     jsonBody(root, text: Self.displayText(data, contentType: type), copyable: true)
+                } else if !content.truncated, let xml = XMLTreeParser.parse(data, contentType: type) {
+                    xmlBody(xml, text: String(decoding: data, as: UTF8.self))
                 } else {
                     bodyText(Self.displayText(data, contentType: type), truncated: content.truncated, copyable: false, total: content.totalSize)
                 }
@@ -249,6 +253,17 @@ struct RequestDetailView: View {
     private func jsonBody(_ root: Any, text: String, copyable: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             JSONTreeView(root: root, copyText: copyable ? text : nil)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12).fill(.black.opacity(0.18)))
+            if let note = content?.note { info(note) }
+        }
+    }
+
+    /// An XML body as a tree whose elements can be folded.
+    private func xmlBody(_ root: XMLElementNode, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            XMLTreeView(root: root, copyText: text)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 12).fill(.black.opacity(0.18)))

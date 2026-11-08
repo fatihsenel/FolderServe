@@ -98,6 +98,15 @@ extension PreviewData {
                              preloaded: LoadedContent(data: Data(json.utf8)), onClose: {})
         .environment(s.manager).frame(width: 520, height: 600)
 }
+#Preview("Request detail – XML response") {
+    let s = PreviewData.runningServer()
+    let xml = #"<?xml version="1.0"?><users total="2"><user id="7"><name>Ada</name><tags><tag>ops</tag><tag>dev</tag></tags></user><user id="9"><name>Linus</name><note/></user></users>"#
+    var entry = PreviewData.requestLine(for: s.id).entry
+    entry.responseHeaders = [HTTPHeaderField(name: "Content-Type", value: "application/xml")]
+    return RequestDetailView(line: LogLine(serverID: s.id, entry: entry), initialTab: .preview,
+                             preloaded: LoadedContent(data: Data(xml.utf8)), onClose: {})
+        .environment(s.manager).frame(width: 520, height: 600)
+}
 #Preview("Menu bar") { MenuBarView().environment(PreviewData.manager(populated: true)).frame(width: 320) }
 #Preview("Proxy editor") {
     let s = PreviewData.runningServer()
