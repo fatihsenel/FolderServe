@@ -92,6 +92,7 @@ struct RequestDetailView: View {
             .buttonStyle(.plain).font(.caption).foregroundStyle(copiedCurl ? Theme.running : .secondary)
             .help("Copy a curl command that repeats this request, with its headers and body")
             if let info = repeatInfo { RepeatNote(info: info) }
+            if let load = pageLoad { PageLoadNote(load: load) }
         }
     }
 
@@ -100,6 +101,12 @@ struct RequestDetailView: View {
         guard let index = manager.log.firstIndex(where: { $0.id == line.id }) else { return nil }
         let earlier = manager.log[..<index].filter { $0.serverID == line.serverID }.map(\.entry)
         return RepeatAnalysis.analyze(entry, earlier: earlier)
+    }
+
+    /// Set when this is a page: how long it took with everything it loaded.
+    private var pageLoad: PageLoad? {
+        guard entry.category == .doc else { return nil }
+        return PageLoadAnalysis.analyze(entry, in: manager.log.filter { $0.serverID == line.serverID }.map(\.entry))
     }
 
     private var statusColor: Color {
@@ -453,6 +460,38 @@ struct RepeatNote: View {
     }
 
     private var gap: String { info.gapMs < 1000 ? "\(info.gapMs) ms" : String(format: "%.1f s", Double(info.gapMs) / 1000) }
+}
+
+/// "Page load" card: this page and the files it loaded, with the total time and the slowest request.
+struct PageLoadNote: View {
+    let load: PageLoad
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Page load · \(ActivityView.durationText(load.totalMs))", systemImage: "timer")
+                .font(.system(size: 12, weight: .semibold)).foregroundStyle(ActivityView.durationColor(load.totalMs))
+            Text(Self.summary(load)).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+            if let slowest = load.slowest {
+                Text("Slowest: \(slowest.path) · \(ActivityView.durationText(slowest.durationMs))")
+                    .font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(.white.opacity(0.07)))
+        .accessibilityElement(children: .combine)
+    }
+
+    /// "This page and its 14 files finished loading in 1.30 s (2 failed, 1.2 MB)."
+    static func summary(_ load: PageLoad) -> String {
+        let n = load.files.count
+        var text = "This page and its \(n) \(n == 1 ? "file" : "files") finished loading in \(ActivityView.durationText(load.totalMs))"
+        var extras = [ByteCountFormatter.string(fromByteCount: load.bytes, countStyle: .file)]
+        if load.failed > 0 { extras.insert("\(load.failed) failed", at: 0) }
+        text += " (" + extras.joined(separator: ", ") + ")."
+        return text
+    }
 }
 
 // MARK: - Foldable JSON
