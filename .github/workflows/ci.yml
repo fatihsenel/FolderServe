@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Core package tests
+        run: swift test --package-path Packages/FolderServeCore
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the Xcode project
+        run: xcodegen generate
+
+      - name: App build and tests
+        run: |
+          set -o pipefail
+          # The log is full of harmless linkd / nw_path noise, so only the summary lines are shown.
+          # pipefail makes a failing xcodebuild fail the step.
+          xcodebuild test \
+            -scheme FolderServe \
+            -destination 'platform=macOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee test.log | grep -E "Executed|\*\* TEST|error:"
+
+      - name: Test log (on failure)
+        if: failure()
+        run: tail -150 test.log || true
