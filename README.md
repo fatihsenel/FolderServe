@@ -14,7 +14,7 @@ static sites and single page apps, with live reload.
 - Range requests (video/audio seeking), directory listings, correct MIME types, files streamed in chunks.
 - Servers listen on `127.0.0.1` only. Path traversal (`..`, encoded, symlinks leaving the folder) → 403.
   Dotfiles (`.env`, `.git`) are not served unless you enable it in Settings.
-- Activity log of requests with timings and a dev-tools style detail panel (JSON and XML bodies are coloured and can be folded), per-folder toggles, start-at-launch and launch-at-login.
+- Activity log of requests with timings and a dev-tools style detail panel (JSON and XML bodies are coloured and can be folded; a page shows its total load time with the files it loaded), per-folder toggles, start-at-launch and launch-at-login.
 - Optional API proxy, CORS, HTTPS and sharing on your network (each described below).
 
 ## Build

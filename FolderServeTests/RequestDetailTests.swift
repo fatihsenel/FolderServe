@@ -338,4 +338,27 @@ final class RequestDetailTests: XCTestCase {
     func testXMLAttributeEscaping() {
         XCTAssertEqual(XMLTreeText.escapeAttribute(#"a "b" & <c>"#), "a &quot;b&quot; &amp; &lt;c>")
     }
+
+    // MARK: Page load
+
+    func testPageLoadSummaryWords() throws {
+        let s = PreviewData.pageLoadServer()
+        let load = try XCTUnwrap(PageLoadAnalysis.analyze(s.page.entry, in: s.manager.log.map(\.entry)))
+        XCTAssertEqual(load.files.count, 4)
+        XCTAssertEqual(load.failed, 1)
+        XCTAssertEqual(PageLoadNote.summary(load).hasPrefix("This page and its 4 files finished loading in 700 ms (1 failed, "), true,
+                       PageLoadNote.summary(load))
+        XCTAssertEqual(load.slowest?.path, "/main.js")
+    }
+
+    func testRenderPageLoadSnapshot() throws {
+        let s = PreviewData.pageLoadServer()
+        let view = RequestDetailView(line: s.page, initialTab: .headers, onClose: {})
+            .environment(s.manager).environment(\.colorScheme, .dark).environment(\.isSnapshotRendering, true)
+            .frame(width: 480, height: 720).padding(20).background(Theme.background(.dark))
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-detail-page-load.png"))
+    }
 }

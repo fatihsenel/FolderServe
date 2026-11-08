@@ -48,6 +48,31 @@ private struct PreviewStore: ServerStoring {
 // Entries in the populated manager: [0] running, [1] running, [2] folder missing, [3] error, [4] finding a port.
 
 extension PreviewData {
+    /// A running server whose log holds one page load (index.html, its script, stylesheet, font and a failing image).
+    /// Returns the page's line too.
+    static func pageLoadServer() -> (manager: ServerManager, page: LogLine) {
+        let s = runningServer()
+        let origin = "http://127.0.0.1:8080"
+        let t0 = Date().addingTimeInterval(-5)
+        func line(_ path: String, _ category: RequestCategory, endAfter: Double, ms: Int, bytes: Int64, status: Int = 200,
+                  referer: String? = nil) -> LogLine {
+            var e = RequestLogEntry(date: t0.addingTimeInterval(endAfter), method: "GET", path: path, status: status, bytes: bytes, category: category)
+            e.url = origin + path
+            e.durationMs = ms
+            if let referer { e.requestHeaders = [HTTPHeaderField(name: "referer", value: referer)] }
+            return LogLine(serverID: s.id, entry: e)
+        }
+        let page = line("/", .doc, endAfter: 0.012, ms: 12, bytes: 4_210)
+        for l in [page,
+                  line("/assets/app.css", .css, endAfter: 0.09, ms: 60, bytes: 18_400, referer: origin + "/"),
+                  line("/main.js", .js, endAfter: 0.62, ms: 540, bytes: 350_000, referer: origin + "/"),
+                  line("/fonts/inter.woff2", .font, endAfter: 0.31, ms: 190, bytes: 48_000, referer: origin + "/assets/app.css"),
+                  line("/missing.png", .img, endAfter: 0.7, ms: 4, bytes: 612, status: 404, referer: origin + "/")] {
+            s.manager.append(l)
+        }
+        return (s.manager, page)
+    }
+
     /// A populated manager plus the id of its first (running) server.
     static func runningServer() -> (manager: ServerManager, id: UUID) {
         let m = manager(populated: true)
@@ -106,6 +131,10 @@ extension PreviewData {
     return RequestDetailView(line: LogLine(serverID: s.id, entry: entry), initialTab: .preview,
                              preloaded: LoadedContent(data: Data(xml.utf8)), onClose: {})
         .environment(s.manager).frame(width: 520, height: 600)
+}
+#Preview("Request detail – page load") {
+    let s = PreviewData.pageLoadServer()
+    return RequestDetailView(line: s.page, onClose: {}).environment(s.manager).frame(width: 520, height: 600)
 }
 #Preview("Menu bar") { MenuBarView().environment(PreviewData.manager(populated: true)).frame(width: 320) }
 #Preview("Proxy editor") {
