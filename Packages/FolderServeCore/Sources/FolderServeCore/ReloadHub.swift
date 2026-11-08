@@ -8,11 +8,27 @@ public enum ReloadKind: Equatable, Sendable {
     /// Only stylesheets changed: pages re-fetch their linked stylesheets and keep their state (scroll position, forms, open menus).
     case styles
 
-    /// `.styles` when every changed path is a `.css` file, otherwise `.full` (also for an empty list, and for anything we cannot tell).
+    /// `.styles` when every changed path belongs to a stylesheet, otherwise `.full` (also for an empty list, and for anything we cannot tell).
     public static func classify(paths: [String]) -> ReloadKind {
-        guard !paths.isEmpty, paths.allSatisfy({ URL(fileURLWithPath: $0).pathExtension.lowercased() == "css" }) else { return .full }
+        guard !paths.isEmpty, paths.allSatisfy(isStylesheetFile) else { return .full }
         return .styles
     }
+
+    /// A `.css` file, or the temporary / backup file an editor writes next to it while saving (`a.css.sb-1f2e`, `a.css~`, `.a.css.swp`,
+    /// `a.css.tmp`): most editors save by writing a temp file and renaming it over the original, so both show up in one burst.
+    /// Code that merely has `.css` in its name (`styles.css.ts`, `.css.js`) is not a stylesheet.
+    static func isStylesheetFile(_ path: String) -> Bool {
+        let url = URL(fileURLWithPath: path)
+        let ext = url.pathExtension.lowercased()
+        if ext == "css" { return true }
+        if codeExtensions.contains(ext) { return false }
+        let name = url.lastPathComponent.lowercased()
+        guard let r = name.range(of: ".css") else { return false }
+        let after = name[r.upperBound...]
+        return after.isEmpty || !(after.first!.isLetter || after.first!.isNumber)
+    }
+
+    private static let codeExtensions: Set<String> = ["js", "mjs", "cjs", "ts", "tsx", "jsx", "html", "htm", "json", "vue", "svelte", "php", "scss", "sass", "less"]
 
     var message: String { self == .styles ? "data: css\n\n" : "data: reload\n\n" }
 }

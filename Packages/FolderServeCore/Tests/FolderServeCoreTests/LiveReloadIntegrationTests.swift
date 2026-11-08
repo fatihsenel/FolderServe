@@ -76,6 +76,16 @@ final class LiveReloadIntegrationTests: XCTestCase {
         XCTAssertFalse(got.contains("data: reload"), got)
     }
 
+    func testAtomicCSSSaveWithTemporaryFileStillSwapsStyles() async throws {
+        try write("index.html", "<body></body>")
+        let css = try write("a.css", "body{color:red}")
+        let port = try await start()
+        // `atomically: true` writes a temporary file and renames it over the original, as most editors do.
+        let got = try eventAfter(port: port, needle: "data: ") { try "body{color:blue}".write(to: css, atomically: true, encoding: .utf8) }
+        XCTAssertTrue(got.contains("data: css"), got)
+        XCTAssertFalse(got.contains("data: reload"), got)
+    }
+
     func testChangingHTMLStillReloadsThePage() async throws {
         let html = try write("index.html", "<body>1</body>")
         let port = try await start()
