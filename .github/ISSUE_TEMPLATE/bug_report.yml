@@ -1,0 +1,49 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Remove `Authorization`, `Cookie` and tokens** from anything you paste: FolderServe shows request headers unmasked.
+        For security problems, please use the Security tab instead of a public issue.
+  - type: input
+    id: version
+    attributes:
+      label: FolderServe version
+      description: From the release you downloaded, or `brew list --cask --versions folderserve`.
+      placeholder: "0.1.1"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "14.6"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options: [GitHub release zip, Homebrew cask, Built from source]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What did you do?
+      description: Steps to reproduce. What kind of folder (static site, Angular, React…), and which options were on (Proxy, HTTPS, Share, Cache…)?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, the Activity detail of the request (secrets removed), console errors from the browser.
