@@ -21,6 +21,7 @@ struct OptionsPopoverView: View {
             row("Name address", "Show and open this folder as \(HostSlug.make(entryName)).localhost instead of 127.0.0.1. Browsers and curl send *.localhost to this Mac.", \.friendlyHost)
             openAtRow
             group("Debugging").padding(.top, 8)
+            delayRow
             row("Page console", "Show the pages' console errors, warnings and uncaught errors under Activity ▸ Console, also from a phone. Adds a small script to HTML pages.", \.captureConsole)
             group("Security").padding(.top, 8)
             row("HTTPS", "Serve over https:// with a self-signed localhost certificate. Your browser warns once.", \.https)
@@ -52,6 +53,36 @@ struct OptionsPopoverView: View {
             if openAtInvalid {
                 Text("That is not a path on this server. Use something like /docs/index.html.")
                     .font(.caption).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    /// Slow network: hold every answer back by a chosen time. Drawn as buttons (ImageRenderer cannot draw a Picker).
+    private var delayRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 5) {
+                Text("Delay").font(.callout.weight(.medium))
+                if options.effectiveDelayMs > 0 {
+                    Image(systemName: "tortoise.fill").font(.system(size: 11)).foregroundStyle(Theme.warning).accessibilityLabel("Delay is on")
+                }
+            }
+            Text("Wait before answering every request, to see spinners and loading states. Remember to switch it off.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 4) {
+                ForEach(ServeOptions.delayChoices, id: \.self) { ms in
+                    let selected = options.effectiveDelayMs == ms
+                    Button { var o = options; o.responseDelayMs = ms; manager.setOptions(entryID, o) } label: {
+                        Text(ServeOptions.delayLabel(ms)).font(.system(size: 11, weight: selected ? .semibold : .regular))
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .foregroundStyle(selected ? Color.white : Color.primary.opacity(0.85))
+                            .background(Capsule().fill(selected ? AnyShapeStyle(ms == 0 ? Theme.accent : Theme.warning.opacity(0.85)) : AnyShapeStyle(.quaternary.opacity(0.6))))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Delay \(ServeOptions.delayLabel(ms))")
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
             }
         }
         .padding(.vertical, 6)

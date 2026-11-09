@@ -20,6 +20,10 @@ struct ServerCardView: View {
                             title(for: entry)
                             if let kind = manager.projectKinds[entryID] { ProjectBadge(kind: kind) }
                             if entry.options.https { OptionBadge(text: "HTTPS") }
+                            if entry.options.effectiveDelayMs > 0 {
+                                OptionBadge(text: "Slow · \(ServeOptions.delayLabel(entry.options.effectiveDelayMs))", warning: true)
+                                    .help("Every answer is held back by \(ServeOptions.delayLabel(entry.options.effectiveDelayMs)). Change it under Options ▸ Delay.")
+                            }
                             if entry.options.cors { OptionBadge(text: "CORS", warning: true).help("CORS is on: any website open in your browser can read the files served here.") }
                             if entry.startsAlways {
                                 Image(systemName: "pin.fill").font(.system(size: 11)).foregroundStyle(.secondary)

@@ -43,7 +43,7 @@ Rendered from the app's built-in sample data (no real folders or requests).
 
 | Activity | Options |
 |---|---|
-| ![Activity filtered to errors: type chips, status chips (any, success, redirects, errors), search and the matching requests](docs/screenshots/activity-list.png) | ![Options popover: SPA mode, Cache, Name address, Open at, HTTPS, CORS](docs/screenshots/options.png) |
+| ![Activity filtered to errors: type chips, status chips (any, success, redirects, errors), search and the matching requests](docs/screenshots/activity-list.png) | ![Options popover: SPA mode, Cache, Name address, Open at, Delay, Page console, HTTPS, CORS](docs/screenshots/options.png) |
 
 ![Foldable, coloured JSON tree](docs/screenshots/json-tree.png)
 
@@ -53,6 +53,7 @@ Rendered from the app's built-in sample data (no real folders or requests).
 
 - Drop a folder on the window, the Dock icon or the menu bar popover — it starts serving immediately. **⌘O** (File ▸ Add Folder…) opens the folder picker.
   Also works from Terminal: `open -a FolderServe ~/my-site`.
+- **Slow network**: delay every answer of a server to see loading states. See [Slow network](#slow-network).
 - **Page console**: see the pages' console errors, warnings and uncaught errors in the app, also from a phone. See [Page console](#page-console).
 - **Mock responses**: answer a path with a saved response (status, type, body) instead of the real one. Save one from any request in Activity. See [Mock responses](#mock-responses).
 - **Finder**: right-click a folder ▸ **Services ▸ Serve with FolderServe** serves it and opens it in your browser, without opening the app or dragging. macOS leaves a new service switched off: tick **Serve with FolderServe** once in System Settings ▸ Keyboard ▸ Keyboard Shortcuts ▸ Services ▸ Files and Folders, and it appears in the right-click menu. Folders also work through *Open With*.
@@ -230,6 +231,12 @@ remove) or the body, then **Send**. The host is always the server's current addr
 appears in Activity, and **Show in Activity** jumps to it. Edits are never written to disk.
 
 <img src="docs/screenshots/edit-replay.png" alt="The Edit & Replay sheet: method, path, headers, body, and the status of the answer" width="600">
+
+## Slow network
+
+**Options ▸ Delay** holds every answer of a server back by 200 ms, 500 ms, 1 s, 2 s or 5 s, so you can see spinners, skeletons and what
+happens when a user clicks twice. Files, mocks, proxied calls and error pages are all delayed; live reload's own connection is not. The
+wait is part of the time Activity shows, and the server's card carries a **Slow** badge while it is on, so you do not forget it.
 
 ## Page console
 
