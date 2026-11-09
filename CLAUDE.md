@@ -128,3 +128,5 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
   `ServerManager.consoleLines` keeps the newest 500 in memory. Activity has a hand-drawn Requests | Console switch (`ActivityMode`). The script is JavaScript in a Swift string: after changing it, run it in Node with a fake `location`/`fetch`.
 - **Delay** (`ServeOptions.responseDelayMs`, `effectiveDelayMs` clamps to 0…10 s): `StaticServer.respond` does the host check, `/__reload` and `/__console` at once, then waits on the server queue before `handle` (CORS, mocks, proxy, files),
   dropping the request if the client has gone. The clock for `durationMs` started on arrival, so Activity shows the wait. The Options row is hand-drawn buttons, and the card shows a "Slow" `OptionBadge`.
+- **Card buttons** (`ServerCardView`): `ViewThatFits` tries three rows in order: all labels, a compact row (Open, Finder and Remove as icons), then two rows. The buttons sit in their own `HStack`; as direct children
+  of the outer stack each one took the outer 18 pt spacing and the row wrapped far too early.

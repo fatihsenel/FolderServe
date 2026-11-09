@@ -45,7 +45,13 @@ struct ServerCardView: View {
                     HStack(spacing: 18) {
                         togglesGroup(entry)
                         Spacer(minLength: 8)
-                        buttonsGroup(entry)
+                        HStack(spacing: 10) { buttonsGroup(entry) }
+                    }
+                    // Tighter: the buttons everyone knows by their icon lose their text before the row wraps.
+                    HStack(spacing: 18) {
+                        togglesGroup(entry)
+                        Spacer(minLength: 8)
+                        HStack(spacing: 8) { buttonsGroup(entry, compact: true) }
                     }
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 18) { togglesGroup(entry) }
@@ -75,7 +81,7 @@ struct ServerCardView: View {
         }
     }
 
-    @ViewBuilder private func buttonsGroup(_ entry: ServerEntry) -> some View {
+    @ViewBuilder private func buttonsGroup(_ entry: ServerEntry, compact: Bool = false) -> some View {
         Group {
             Button { showingProxy = true } label: {
                 let n = entry.options.proxyRules.count
@@ -99,13 +105,16 @@ struct ServerCardView: View {
             }
             .help("SPA mode, Cache, HTTPS, CORS")
             .popover(isPresented: $showingOptions, arrowEdge: .bottom) { OptionsPopoverView(entryID: entryID) }
-            Button { open() } label: { Label("Open", systemImage: "safari") }.disabled(!isRunning)
+            Button { open() } label: {
+                if compact { Image(systemName: "safari") } else { Label("Open", systemImage: "safari") }
+            }
+            .disabled(!isRunning).help("Open in your browser").accessibilityLabel("Open")
             if status != .folderMissing {
-                Button { FinderReveal.reveal(path: entry.folderPath) } label: { Label("Finder", systemImage: "folder") }
-                    .help("Show this folder in Finder")
+                Button { FinderReveal.reveal(path: entry.folderPath) } label: { Image(systemName: "folder") }
+                    .help("Show this folder in Finder").accessibilityLabel("Show in Finder")
             }
             Button(role: .destructive) { manager.requestRemoval(entryID) } label: { Image(systemName: "trash") }
-                .help("Remove this folder")
+                .help("Remove this folder").accessibilityLabel("Remove this folder")
         }
         .controlSize(.small)
         .buttonStyle(.bordered)
