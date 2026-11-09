@@ -35,19 +35,19 @@ Rendered from the app's built-in sample data (no real folders or requests).
 
 <img src="docs/screenshots/servers-list.png" alt="Servers screen with five sample folders: running, folder missing, port in use and finding a port" width="720">
 
-<img src="docs/screenshots/activity-detail.png" alt="Activity: request list with the slowest request marked, and the selected request's Copy as cURL and Replay buttons, headers, forwarded address and timing" width="900">
+<img src="docs/screenshots/activity-detail.png" alt="Activity: type and status chips, the request list with the slowest request marked, and the selected request's Copy as cURL, Replay and Edit & Replay buttons, headers, forwarded address and timing" width="900">
 
 | Empty state | Menu bar |
 |---|---|
-| ![Empty Servers screen with Add Folder and Choose Folder buttons](docs/screenshots/servers-empty.png) | ![Menu bar window listing five servers](docs/screenshots/menu-bar.png) |
+| ![Empty Servers screen with Add Folder and Choose Folder buttons](docs/screenshots/servers-empty.png) | ![Menu bar window listing five servers and two recent folders](docs/screenshots/menu-bar.png) |
 
 | Activity | Options |
 |---|---|
-| ![Activity list with a slowest-request marker and time column](docs/screenshots/activity-list.png) | ![Options popover: SPA mode, Cache, Name address, HTTPS, CORS](docs/screenshots/options.png) |
+| ![Activity filtered to errors: type chips, status chips (any, success, redirects, errors), search and the matching requests](docs/screenshots/activity-list.png) | ![Options popover: SPA mode, Cache, Name address, Open at, HTTPS, CORS](docs/screenshots/options.png) |
 
 ![Foldable, coloured JSON tree](docs/screenshots/json-tree.png)
 
-<img src="docs/screenshots/settings.png" alt="Settings: start servers at launch, serve dotfiles, launch at login, splash screen" width="720">
+<img src="docs/screenshots/settings.png" alt="Settings: start servers at launch, serve dotfiles, launch at login, browser to open pages in, update check, splash screen" width="720">
 
 ## Features
 
@@ -224,6 +224,8 @@ whole (bodies are only kept for proxied calls, up to 32 KB). `Authorization` and
 remove) or the body, then **Send**. The host is always the server's current address; `Host`, `Content-Length` and
 `Connection` are set for you. A body that was cut off or dropped starts empty, so you type the one to send. The new request
 appears in Activity, and **Show in Activity** jumps to it. Edits are never written to disk.
+
+<img src="docs/screenshots/edit-replay.png" alt="The Edit & Replay sheet: method, path, headers, body, and the status of the answer" width="600">
 
 ## Show in Finder
 

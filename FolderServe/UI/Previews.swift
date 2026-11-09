@@ -159,9 +159,9 @@ extension PreviewData {
     return RequestDetailView(line: s.page, onClose: {}).environment(s.manager).frame(width: 520, height: 600)
 }
 #Preview("Update banner") {
-    UpdateBanner(release: LatestRelease(tag: "v0.2.0", version: AppVersion("0.2.0")!,
-                                        url: URL(string: "https://github.com/fatihsenel/FolderServe/releases/tag/v0.2.0")!),
-                 current: AppVersion("0.1.0")!)
+    UpdateBanner(release: LatestRelease(tag: "v0.1.6", version: AppVersion("0.1.6")!,
+                                        url: URL(string: "https://github.com/fatihsenel/FolderServe/releases/tag/v0.1.6")!),
+                 current: AppVersion("0.1.5")!)
         .padding(28).frame(width: 760)
 }
 #Preview("Menu bar") { MenuBarView().environment(PreviewData.manager(populated: true)).frame(width: 320) }
