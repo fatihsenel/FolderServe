@@ -8,6 +8,8 @@ struct ActivityView: View {
     @Environment(\.isSnapshotRendering) private var isSnapshot
     @State private var filter: UUID?
     @State private var category: RequestCategory?
+    /// Only requests whose status falls in this family (success, redirect, error).
+    @State private var statusFilter: StatusFilter
     @State private var selectedID: UUID?
     /// Requests that no page made (DevTools or an extension re-fetching a file) are hidden unless switched on.
     @AppStorage("activityShowDetached") private var showDetached = false
@@ -22,7 +24,9 @@ struct ActivityView: View {
     /// Text typed in the search field; every word must match a request for it to be listed.
     @State private var query: String
 
-    init(initialSelection: UUID? = nil, initiallyHovered: UUID? = nil, initialQuery: String = "", initiallySlowestFirst: Bool = false) {
+    init(initialSelection: UUID? = nil, initiallyHovered: UUID? = nil, initialQuery: String = "", initiallySlowestFirst: Bool = false,
+         initialStatus: StatusFilter = .any) {
+        _statusFilter = State(initialValue: initialStatus)
         _selectedID = State(initialValue: initialSelection)
         _hoveredID = State(initialValue: initiallyHovered)
         _query = State(initialValue: initialQuery)
@@ -36,11 +40,15 @@ struct ActivityView: View {
     private var serverLines: [LogLine] { showDetached ? allServerLines : allServerLines.filter { !$0.entry.isDetached } }
     /// Lines of the chosen server that match the search (the category chips count these).
     private var searchedLines: [LogLine] { serverLines.filter { Self.matches($0.entry, query: query) } }
-    /// What is listed: the chosen server, the search and the category.
+    /// What is listed: the chosen server, the search, the status family and the category.
     private var lines: [LogLine] {
-        let listed = category.map { c in searchedLines.filter { $0.entry.category == c } } ?? searchedLines
+        let listed = category.map { c in withStatus.filter { $0.entry.category == c } } ?? withStatus
         return Self.ordered(listed, slowestFirst: slowestFirst)
     }
+    /// Search matches that also have the chosen status (the category chips count these).
+    private var withStatus: [LogLine] { searchedLines.filter { statusFilter.matches(status: $0.entry.status) } }
+    /// Search matches in the chosen category (the status chips count these).
+    private var inCategory: [LogLine] { category.map { c in searchedLines.filter { $0.entry.category == c } } ?? searchedLines }
     /// The request that took longest in this list, when it is slow enough to deserve a marker.
     private var slowestID: UUID? { Self.slowestID(in: lines) }
     private var isSearching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -49,9 +57,10 @@ struct ActivityView: View {
         return manager.logLines(for: nil).first { $0.id == selectedID }
     }
     private func count(_ c: RequestCategory?) -> Int {
-        guard let c else { return searchedLines.count }
-        return searchedLines.filter { $0.entry.category == c }.count
+        guard let c else { return withStatus.count }
+        return withStatus.filter { $0.entry.category == c }.count
     }
+    private func count(_ f: StatusFilter) -> Int { inCategory.filter { f.matches(status: $0.entry.status) }.count }
 
     /// Title and controls. When the window is narrow the controls drop to their own row and shrink (icon-only buttons).
     private var header: some View {
@@ -93,7 +102,10 @@ struct ActivityView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
-            categoryChips
+            VStack(alignment: .leading, spacing: 8) {
+                categoryChips
+                statusChips
+            }
             GeometryReader { geo in
                 let selected = selectedLine
                 if geo.size.width >= 760 {
@@ -117,6 +129,7 @@ struct ActivityView: View {
         .defaultFocus($listFocused, true)
         // The details belong to the list that was on screen: close them when the list changes.
         .onChange(of: category) { _, _ in selectedID = nil }
+        .onChange(of: statusFilter) { _, _ in selectedID = nil }
         .onChange(of: filter) { _, _ in selectedID = nil }
         .onChange(of: query) { _, _ in selectedID = nil }
         .padding(28)
@@ -237,7 +250,7 @@ struct ActivityView: View {
         return slowest.id
     }
 
-    /// Asks where to save, then writes the listed requests (respecting the server, category and search) as a HAR file.
+    /// Asks where to save, then writes the listed requests (respecting the server, status, category and search) as a HAR file.
     private func exportHAR() {
         let listed = lines
         let paths = Dictionary(manager.entries.map { ($0.id, $0.folderPath) }, uniquingKeysWith: { first, _ in first })
@@ -335,9 +348,23 @@ struct ActivityView: View {
     }
 
     private func chip(_ title: String, _ value: RequestCategory?) -> some View {
-        let selected = category == value
-        let n = count(value)
-        return Button { category = value } label: {
+        pill(title, count: count(value), selected: category == value) { category = value }
+    }
+
+    /// Status families: All / Success / Redirects / Errors. They combine with the category chips and the search.
+    private var statusChips: some View {
+        FlowLayout(spacing: 8, rowSpacing: 8) {
+            ForEach(StatusFilter.allCases, id: \.self) { f in
+                pill(f.label, count: count(f), selected: statusFilter == f, tint: f == .errors ? Theme.failed : Theme.accent,
+                     help: f.detail) { statusFilter = f }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func pill(_ title: String, count n: Int, selected: Bool, tint: Color = Theme.accent, help: String? = nil,
+                      action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             HStack(spacing: 6) {
                 Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                 Text("\(n)").font(.system(size: 11, weight: .medium, design: .monospaced)).lineLimit(1)
@@ -347,10 +374,11 @@ struct ActivityView: View {
             .padding(.horizontal, 12).padding(.vertical, 6)
             .fixedSize()
             .foregroundStyle(selected ? Color.white : Color.primary.opacity(n == 0 ? 0.4 : 0.85))
-            .background(Capsule().fill(selected ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(.quaternary.opacity(0.6))))
+            .background(Capsule().fill(selected ? AnyShapeStyle(tint) : AnyShapeStyle(.quaternary.opacity(0.6))))
             .overlay(Capsule().strokeBorder(.white.opacity(selected ? 0.35 : 0.12), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
+        .help(help ?? "")
         .animation(.smooth(duration: 0.2), value: selected)
         .accessibilityLabel("\(title), \(n) requests")
         .accessibilityAddTraits(selected ? .isSelected : [])
