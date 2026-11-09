@@ -120,3 +120,6 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
 - **Finder Service** (`NSServices` in `project.yml`, `FolderServeAppDelegate.serveFolders`): "Serve with FolderServe" on `public.folder`. The provider is set in `applicationDidFinishLaunching` (not in tests);
   `folderURLs(in:)` keeps folders and `handleService` adds each through `addDropped`, waits for it to run and opens it with `BrowserOpener`. macOS reads `NSServices` when it indexes the app, so after a rebuild
   run `/System/Library/CoreServices/pbs -update` to see a changed entry.
+- **Mock responses** (`MockRule` in core, `ServeOptions.mocks`, `MockEditorView`): `StaticServer.respond` checks mocks after the host check and CORS and before proxy rules; `answerMock` reads a request body first so the client
+  is not cut off. Matching is exact on the decoded path, a GET mock also answers HEAD, and a rule with a `problem` never matches (control characters in the content type are refused: it becomes a header). The log entry gets
+  `note = "mock"` and the body. "Save as mock" (`RequestDetailView.mock(for:content:)`) uses the captured body, or the loaded file for a static request. Mock bodies are the only response bodies written to disk (`servers.json`), by design.

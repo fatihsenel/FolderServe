@@ -33,6 +33,7 @@ struct RequestDetailView: View {
     @State private var copiedCurl = false
     @State private var replay: ReplayState = .idle
     @State private var editing = false
+    @State private var savedMock = false
 
     init(line: LogLine, initialTab: DetailTab = .headers, preloaded: LoadedContent? = nil,
          onShowReplay: ((UUID) -> Void)? = nil, onClose: @escaping () -> Void) {
@@ -112,6 +113,7 @@ struct RequestDetailView: View {
                 .help("Copy a curl command that repeats this request, with its headers and body")
                 replayButton
                 editReplayButton
+                mockButton
                 if entry.isReplay {
                     Text("Replayed").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
                         .padding(.horizontal, 7).padding(.vertical, 2).background(Capsule().fill(.white.opacity(0.1)))
@@ -155,6 +157,31 @@ struct RequestDetailView: View {
             .help(manager.url(for: line.serverID) == nil ? "Start the server to replay this request"
                   : "Change the method, address, headers or body, then send it again")
             .sheet(isPresented: $editing) { EditReplayView(line: line, onShow: onShowReplay) }
+    }
+
+    /// The mock this request's answer would become, or nil when the answer is not available whole as text.
+    static func mock(for entry: RequestLogEntry, content: LoadedContent?) -> MockRule? {
+        if entry.responseBody != nil { return MockRule(capturing: entry) }
+        guard let content, !content.truncated, let data = content.data else { return nil }
+        return MockRule(capturing: entry, body: data)
+    }
+
+    /// Saves this request's answer as a mock for its server, so the same path gets it again without the real server.
+    private var mockButton: some View {
+        let rule = Self.mock(for: entry, content: content)
+        let alreadyMocked = entry.note == MockRule.note
+        return Button {
+            guard let rule, manager.addMock(rule, to: line.serverID) else { return }
+            savedMock = true
+            Task { try? await Task.sleep(for: .seconds(1.6)); savedMock = false }
+        } label: {
+            Label(savedMock ? "Saved" : "Save as mock", systemImage: savedMock ? "checkmark" : "theatermasks")
+        }
+        .buttonStyle(.plain).font(.caption).foregroundStyle(savedMock ? Theme.running : .secondary)
+        .disabled(rule == nil || alreadyMocked || manager.folderPath(for: line.serverID) == nil)
+        .help(alreadyMocked ? "This answer already came from a mock"
+              : rule == nil ? "Only a text answer that was captured whole (up to 256 KB) can be saved as a mock"
+              : "Answer \(entry.method) \(entry.path) with this response from now on. Edit or remove it under Mocks on the server's card.")
     }
 
     private func startReplay(base: URL?) {

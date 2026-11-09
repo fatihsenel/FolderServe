@@ -224,6 +224,19 @@ final class SnapshotTests: XCTestCase {
         try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-proxy-editor.png"))
     }
 
+    func testRenderMockEditorSnapshot() throws {
+        let manager = PreviewData.manager(populated: true)
+        let entry = try XCTUnwrap(manager.entries.first)
+        let view = MockEditorView(entryID: entry.id, initialRules: entry.options.mocks)
+            .environment(manager).environment(\.colorScheme, .dark).environment(\.isSnapshotRendering, true)
+            .background(Color(white: 0.16))
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+        XCTAssertGreaterThan(png.count, 5_000)
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-mock-editor.png"))
+    }
+
     func testRenderOptionsPopoverSnapshot() throws {
         let manager = PreviewData.manager(populated: true)
         let id = try XCTUnwrap(manager.entries.first?.id)

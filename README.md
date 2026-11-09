@@ -53,6 +53,7 @@ Rendered from the app's built-in sample data (no real folders or requests).
 
 - Drop a folder on the window, the Dock icon or the menu bar popover — it starts serving immediately. **⌘O** (File ▸ Add Folder…) opens the folder picker.
   Also works from Terminal: `open -a FolderServe ~/my-site`.
+- **Mock responses**: answer a path with a saved response (status, type, body) instead of the real one. Save one from any request in Activity. See [Mock responses](#mock-responses).
 - **Finder**: right-click a folder ▸ **Services ▸ Serve with FolderServe** serves it and opens it in your browser, without opening the app or dragging. macOS leaves a new service switched off: tick **Serve with FolderServe** once in System Settings ▸ Keyboard ▸ Keyboard Shortcuts ▸ Services ▸ Files and Folders, and it appears in the right-click menu. Folders also work through *Open With*.
 - **Menu bar rows**: each server has Open (in your chosen browser), Copy URL and Start/Stop. Right-click a row for Open, Copy URL, Show in Finder, Show Requests, Share on network and Remove. A red number on a row means failed requests (4xx/5xx from pages; replays, DevTools fetches and the favicon probe are ignored) that you have not looked at; click it to see them in Activity. The menu bar icon shows that total plus any servers that failed to start next to it, and dims for a moment whenever a request comes in (not with Reduce Motion on).
 - **Recent folders**: a folder you remove from the list shows up under *Recent folders* in the menu bar popover. One click serves it again with its old name, port and options and opens it in your browser (the last six are kept; *Clear* forgets them all).
@@ -228,6 +229,20 @@ remove) or the body, then **Send**. The host is always the server's current addr
 appears in Activity, and **Show in Activity** jumps to it. Edits are never written to disk.
 
 <img src="docs/screenshots/edit-replay.png" alt="The Edit & Replay sheet: method, path, headers, body, and the status of the answer" width="600">
+
+## Mock responses
+
+**Mocks** on a server's card answers chosen paths with a saved response instead of the folder or the proxy: a method (or *Any*), an exact
+path (the query is ignored), a status, a content type and a body. Use it to work without the real API, or to see how a page copes with a
+`500` or an empty list. A mock wins over a proxy rule for the same path, and CORS headers and the host check still apply.
+
+In Activity, **Save as mock** on a request fills one in from its real answer (a text answer captured whole, up to 256 KB); saving the same
+method and path again replaces it. Mocked requests are listed with a `mock` note and carry an `X-FolderServe-Mock` response header.
+Untick a mock to switch it off without deleting it.
+
+Mocks are saved with the folder's settings on your Mac. That is the one place a response body is written to disk, and only when you save it.
+
+<img src="docs/screenshots/mock-editor.png" alt="The Mock responses editor: a GET mock returning JSON and a switched-off POST mock returning 503" width="500">
 
 ## Show in Finder
 

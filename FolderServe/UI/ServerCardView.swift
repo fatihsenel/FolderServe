@@ -81,6 +81,14 @@ struct ServerCardView: View {
             .popover(isPresented: $showingProxy, arrowEdge: .bottom) {
                 ProxyEditorView(entryID: entryID, initialRules: entry.options.proxyRules)
             }
+            Button { showingMocks = true } label: {
+                let n = entry.options.mocks.filter(\.enabled).count
+                Label(n == 0 ? "Mocks" : "Mocks · \(n)", systemImage: "theatermasks")
+            }
+            .help("Answer chosen paths with a saved response instead of the real one")
+            .popover(isPresented: $showingMocks, arrowEdge: .bottom) {
+                MockEditorView(entryID: entryID, initialRules: entry.options.mocks)
+            }
             Button { showingOptions = true } label: {
                 let n = entry.options.enabledExtrasCount
                 Label(n == 0 ? "Options" : "Options · \(n)", systemImage: "slider.horizontal.3")
@@ -106,6 +114,7 @@ struct ServerCardView: View {
     @State private var cancelled = false
     @FocusState private var titleFocused: Bool
     @State private var showingProxy = false
+    @State private var showingMocks = false
     @State private var showingShare = false
     @State private var showingOptions = false
     @State private var outsideClick = OutsideClickMonitor()

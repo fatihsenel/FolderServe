@@ -13,6 +13,8 @@ enum PreviewData {
         }
         var a = entry("portfolio-site")
         a.options.proxyRules = [ProxyRule(prefix: "/uiapi", target: "https://localhost:5003")]
+        a.options.mocks = [MockRule(method: "GET", path: "/uiapi/Account/Profile", body: #"{"id":7,"name":"Ada","roles":["admin"]}"#),
+                           MockRule(method: "POST", path: "/uiapi/Orders", status: 503, body: #"{"error":"Service unavailable"}"#, enabled: false)]
         let b = entry("react-dashboard"), c = entry("old-docs"), d = entry("blog"), e = entry("new-folder")
         let now = Date()
         func line(_ id: UUID, _ method: String, _ path: String, _ status: Int, _ bytes: Int64, _ ago: TimeInterval, ms: Int? = nil) -> LogLine {
@@ -168,6 +170,10 @@ extension PreviewData {
 #Preview("Proxy editor") {
     let s = PreviewData.runningServer()
     return ProxyEditorView(entryID: s.id, initialRules: s.manager.entries[0].options.proxyRules).environment(s.manager)
+}
+#Preview("Mock editor") {
+    let s = PreviewData.runningServer()
+    return MockEditorView(entryID: s.id, initialRules: s.manager.entries[0].options.mocks).environment(s.manager)
 }
 #Preview("Options popover") {
     let s = PreviewData.runningServer()

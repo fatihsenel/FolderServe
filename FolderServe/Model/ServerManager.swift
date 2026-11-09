@@ -329,6 +329,22 @@ final class ServerManager {
         setOptions(id, options)
     }
 
+    /// Replaces the folder's mock responses (applied to a running server immediately).
+    func setMocks(_ id: UUID, _ mocks: [MockRule]) {
+        guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
+        var options = entries[i].options
+        options.mocks = mocks
+        setOptions(id, options)
+    }
+
+    /// Saves one mock for the folder; a mock for the same method and path is replaced. False when the folder is gone.
+    @discardableResult
+    func addMock(_ rule: MockRule, to id: UUID) -> Bool {
+        guard let entry = entries.first(where: { $0.id == id }) else { return false }
+        setMocks(id, MockRule.adding(rule, to: entry.options.mocks))
+        return true
+    }
+
     static let maxNameLength = 60
 
     /// Trimmed, length-limited label; nil (= use the folder name) when empty or equal to the folder name.
