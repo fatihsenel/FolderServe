@@ -201,6 +201,10 @@ public final class StaticServer: @unchecked Sendable {
                 return
             }
         }
+        if let mock = currentOptions.mocks.first(where: { $0.matches(method: req.method, path: req.path) }) {
+            answerMock(conn, req, mock: mock, buffered: Data(buffered))
+            return
+        }
         if let rule = currentOptions.proxyRules.first(where: { $0.problem == nil && $0.matches(path: req.path) }) {
             proxy(conn, req, rule: rule, buffered: Data(buffered), corsOn: corsOn)
             return
@@ -233,6 +237,24 @@ public final class StaticServer: @unchecked Sendable {
         case .file(let url):
             sendFile(conn, url: url, req: req, head: isHead, liveReload: opts.liveReload)
         }
+    }
+
+    // MARK: - Mocks
+
+    /// Sends a saved answer. A request body is read first (up to a limit) so the client is not cut off while still sending.
+    private func answerMock(_ conn: NWConnection, _ req: HTTPRequest, mock: MockRule, buffered: Data) {
+        let send = { [weak self] in
+            guard let self else { return }
+            self.sendBody(conn, status: mock.status, contentType: mock.contentType.trimmingCharacters(in: .whitespaces),
+                          body: Data(mock.body.utf8), method: req.method, path: req.path, head: req.method == "HEAD",
+                          extra: [MockRule.header: "1"], note: MockRule.note, logBody: true)
+        }
+        guard let length = req.headers["content-length"].flatMap({ Int($0) }), length > buffered.count, length <= ProxyForwarder.maxRequestBody else {
+            send()
+            return
+        }
+        if expectsContinue(req) { sendContinue(conn) }
+        readBody(conn, have: buffered, need: length) { body in if body != nil { send() } }
     }
 
     // MARK: - Proxy
@@ -423,12 +445,18 @@ public final class StaticServer: @unchecked Sendable {
 
     private func sendBody(_ conn: NWConnection, status: Int, contentType: String, body: Data,
                           method: String, path: String, head: Bool, extra: [String: String] = [:],
-                          servedFile: String? = nil, rewritten: Bool = false) {
+                          servedFile: String? = nil, rewritten: Bool = false, note: String? = nil, logBody: Bool = false) {
         var headers = extra
         headers["Content-Type"] = contentType
         headers["Content-Length"] = String(body.count)
-        lockedLog(makeEntry(conn, method: method, path: path, status: status, bytes: Int64(body.count),
-                            responseHeaders: headers, servedFile: servedFile, rewritten: rewritten))
+        var entry = makeEntry(conn, method: method, path: path, status: status, bytes: Int64(body.count),
+                              responseHeaders: headers, servedFile: servedFile, rewritten: rewritten)
+        entry.note = note
+        if logBody {
+            entry.responseBody = Data(body.prefix(RequestLogEntry.maxResponseBodyCapture))
+            entry.responseBodyTruncated = body.count > RequestLogEntry.maxResponseBodyCapture
+        }
+        lockedLog(entry)
         var out = Data(responseHead(conn, status: status, headers: headers).utf8)
         if !head { out.append(body) }
         sendFinal(conn, out)

@@ -21,10 +21,12 @@ public struct ServeOptions: Codable, Equatable, Sendable {
     public var friendlyHost = false
     /// Page the Open button (and "recent folders") opens, as a path with an optional query (`/docs/index.html`). Empty: the site root.
     public var openPath = ""
+    /// Saved answers for exact paths; a matching request gets one instead of the folder or a proxy target.
+    public var mocks: [MockRule] = []
 
     public init(spaMode: Bool = true, liveReload: Bool = true, serveDotfiles: Bool = false, cors: Bool = false,
                 proxyRules: [ProxyRule] = [], caching: Bool = false, https: Bool = false, shareOnNetwork: Bool = false,
-                friendlyHost: Bool = false, openPath: String = "") {
+                friendlyHost: Bool = false, openPath: String = "", mocks: [MockRule] = []) {
         self.spaMode = spaMode
         self.liveReload = liveReload
         self.serveDotfiles = serveDotfiles
@@ -35,6 +37,7 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         self.shareOnNetwork = shareOnNetwork
         self.friendlyHost = friendlyHost
         self.openPath = openPath
+        self.mocks = mocks
     }
 
     // Older saved settings lack newer keys; they default to off (or on, for the original switches).
@@ -50,5 +53,6 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         shareOnNetwork = try c.decodeIfPresent(Bool.self, forKey: .shareOnNetwork) ?? false
         friendlyHost = try c.decodeIfPresent(Bool.self, forKey: .friendlyHost) ?? false
         openPath = try c.decodeIfPresent(String.self, forKey: .openPath) ?? ""
+        mocks = try c.decodeIfPresent([MockRule].self, forKey: .mocks) ?? []
     }
 }
