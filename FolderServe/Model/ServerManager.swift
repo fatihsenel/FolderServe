@@ -22,6 +22,8 @@ final class ServerManager {
     static let maxRecents = 6
     /// Failed requests per server that the user has not looked at yet (the menu bar icon shows their total).
     private(set) var unseenErrors: [UUID: Int] = [:]
+    /// Goes up with every logged request; the menu bar icon pulses when it changes.
+    private(set) var requestTick = 0
     /// Set by the menu bar: the main window opens Activity on this server and status, then clears it.
     var activityRequest: ActivityRequest?
     /// Global setting: serve dotfiles (e.g. .env) from every folder. Off by default.
@@ -298,6 +300,12 @@ final class ServerManager {
     /// Failed requests nobody has looked at yet, over all servers.
     var unseenErrorTotal: Int { unseenErrors.values.reduce(0, +) }
 
+    /// Servers that could not start or stopped with an error (their row shows the message).
+    var failedServerCount: Int { statuses.values.filter { if case .error = $0 { return true } else { return false } }.count }
+
+    /// What the menu bar icon counts: unseen failed requests plus servers that failed to start.
+    var attentionCount: Int { unseenErrorTotal + failedServerCount }
+
     /// The user has seen (or dealt with) this server's failures.
     func markErrorsSeen(_ id: UUID) { unseenErrors[id] = nil }
 
@@ -429,6 +437,7 @@ final class ServerManager {
 
     func append(_ line: LogLine) {
         log.append(line)
+        requestTick &+= 1
         if line.entry.countsAsUnseenError { unseenErrors[line.serverID, default: 0] += 1 }
         if log.count > Self.maxLogLines { log.removeFirst(log.count - Self.maxLogLines) }
         if line.entry.capturedBodyBytes > 0 { enforceBodyBudget() }
