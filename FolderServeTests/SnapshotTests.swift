@@ -118,6 +118,19 @@ final class SnapshotTests: XCTestCase {
         try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-activity-search.png"))
     }
 
+    /// Activity with the Errors status filter on: only 4xx/5xx requests are listed and the chips follow.
+    func testRenderActivityErrorsFilterSnapshot() throws {
+        let view = ActivityView(initialStatus: .errors)
+            .environment(PreviewData.manager(populated: true))
+            .environment(\.colorScheme, .dark)
+            .environment(\.isSnapshotRendering, true)
+            .frame(width: 900, height: 420).background(Theme.background(.dark))
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-activity-errors.png"))
+    }
+
     /// Activity sorted slowest first, with the marker on the slowest request.
     func testRenderActivitySlowestFirstSnapshot() throws {
         let view = ActivityView(initiallySlowestFirst: true)

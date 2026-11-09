@@ -105,3 +105,5 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
   The script must keep reloading on any message other than `css`, so pages that still run an older script keep working.
   Editors save through a temporary file whose name varies by editor and macOS (`a.css.sb-…`, `.dat.nosync…`), so `classify` ignores paths that no longer exist
   (unless they look like a page or script) and needs at least one stylesheet that still does. CI runs an older macOS than development machines: test with explicit temp names.
+- **Activity filters** combine: server picker, search words, category chips (`RequestCategory`) and status chips (`StatusFilter`: any / success 2xx / redirects 3xx / errors 4xx+). Each chip row counts what the *other* filters leave,
+  and the HAR export respects all of them (`lines`).

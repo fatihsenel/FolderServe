@@ -126,6 +126,9 @@ extension PreviewData {
     let s = PreviewData.runningServer()
     return ActivityView(initialSelection: s.id).environment(s.manager).frame(width: 900, height: 700)
 }
+#Preview("Activity, errors only") {
+    ActivityView(initialStatus: .errors).environment(PreviewData.manager(populated: true)).frame(width: 900, height: 500)
+}
 #Preview("Request detail") {
     let s = PreviewData.runningServer()
     return RequestDetailView(line: PreviewData.requestLine(for: s.id), onClose: {})
