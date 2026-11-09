@@ -19,10 +19,12 @@ public struct ServeOptions: Codable, Equatable, Sendable {
     public var shareOnNetwork = false
     /// Show and open the folder as `name.localhost` instead of `127.0.0.1` (the server accepts both either way).
     public var friendlyHost = false
+    /// Page the Open button (and "recent folders") opens, as a path with an optional query (`/docs/index.html`). Empty: the site root.
+    public var openPath = ""
 
     public init(spaMode: Bool = true, liveReload: Bool = true, serveDotfiles: Bool = false, cors: Bool = false,
                 proxyRules: [ProxyRule] = [], caching: Bool = false, https: Bool = false, shareOnNetwork: Bool = false,
-                friendlyHost: Bool = false) {
+                friendlyHost: Bool = false, openPath: String = "") {
         self.spaMode = spaMode
         self.liveReload = liveReload
         self.serveDotfiles = serveDotfiles
@@ -32,6 +34,7 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         self.https = https
         self.shareOnNetwork = shareOnNetwork
         self.friendlyHost = friendlyHost
+        self.openPath = openPath
     }
 
     // Older saved settings lack newer keys; they default to off (or on, for the original switches).
@@ -46,5 +49,6 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         https = try c.decodeIfPresent(Bool.self, forKey: .https) ?? false
         shareOnNetwork = try c.decodeIfPresent(Bool.self, forKey: .shareOnNetwork) ?? false
         friendlyHost = try c.decodeIfPresent(Bool.self, forKey: .friendlyHost) ?? false
+        openPath = try c.decodeIfPresent(String.self, forKey: .openPath) ?? ""
     }
 }

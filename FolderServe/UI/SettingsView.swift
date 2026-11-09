@@ -6,6 +6,9 @@ struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
     @State private var showSplash = SplashSettings.enabled
+    @Environment(\.isSnapshotRendering) private var isSnapshot
+    @AppStorage(BrowserOpener.defaultsKey) private var browserID = ""
+    @State private var browsers = BrowserOpener.installed()
 
     var body: some View {
         @Bindable var manager = manager
@@ -24,6 +27,8 @@ struct SettingsView: View {
                            detail: loginError ?? "Open FolderServe when you sign in to your Mac.",
                            isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
                 Divider().opacity(0.4)
+                browserRow
+                Divider().opacity(0.4)
                 UpdateSettingsRow()
                 Divider().opacity(0.4)
                 SettingRow(title: "Show splash screen",
@@ -39,6 +44,30 @@ struct SettingsView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Which browser the Open buttons use. A browser that was uninstalled since falls back to the system default.
+    private var browserRow: some View {
+        let chosen = browsers.contains { $0.id == browserID } ? browserID : ""
+        return HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Open pages in").font(.system(size: 15, weight: .semibold))
+                Text("The browser used by Open, Recent folders and files opened with FolderServe. “System default” follows your Mac's setting.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if isSnapshot {
+                Text(browsers.first { $0.id == chosen }?.name ?? "System default").font(.callout)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(.white.opacity(0.1)))
+            } else {
+                Picker("Open pages in", selection: Binding(get: { chosen }, set: { browserID = $0 })) {
+                    Text("System default").tag("")
+                    ForEach(browsers) { Text($0.name).tag($0.id) }
+                }
+                .labelsHidden().fixedSize()
+            }
+        }
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {

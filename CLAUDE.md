@@ -107,3 +107,6 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
   (unless they look like a page or script) and needs at least one stylesheet that still does. CI runs an older macOS than development machines: test with explicit temp names.
 - **Activity filters** combine: server picker, search words, category chips (`RequestCategory`) and status chips (`StatusFilter`: any / success 2xx / redirects 3xx / errors 4xx+). Each chip row counts what the *other* filters leave,
   and the HAR export respects all of them (`lines`).
+- **Open in a browser** (`BrowserOpener`): every "open this server" goes through `BrowserOpener.open` (card Open, menu bar Recent folders, files passed to the app); it reads the browser's bundle id from
+  `UserDefaults` (`openBrowserID`, empty = system default; an uninstalled browser falls back to the default). `ServeOptions.openPath` is appended by `ServerManager.openURL(for:)`; `normalizedPath` refuses anything that is not a
+  path on the server. Settings' picker and the Options text field need snapshot stand-ins.
