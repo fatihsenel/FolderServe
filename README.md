@@ -53,6 +53,7 @@ Rendered from the app's built-in sample data (no real folders or requests).
 
 - Drop a folder on the window, the Dock icon or the menu bar popover — it starts serving immediately. **⌘O** (File ▸ Add Folder…) opens the folder picker.
   Also works from Terminal: `open -a FolderServe ~/my-site`.
+- **Finder**: right-click a folder ▸ **Services ▸ Serve with FolderServe** serves it and opens it in your browser, without opening the app or dragging. If the item is missing, switch it on in System Settings ▸ Keyboard ▸ Keyboard Shortcuts ▸ Services ▸ Files and Folders. Folders also work through *Open With*.
 - **Menu bar rows**: each server has Open (in your chosen browser), Copy URL and Start/Stop. Right-click a row for Open, Copy URL, Show in Finder, Show Requests, Share on network and Remove. A red number on a row means failed requests (4xx/5xx from pages; replays, DevTools fetches and the favicon probe are ignored) that you have not looked at; click it to see them in Activity. The menu bar icon shows that total plus any servers that failed to start next to it, and dims for a moment whenever a request comes in (not with Reduce Motion on).
 - **Recent folders**: a folder you remove from the list shows up under *Recent folders* in the menu bar popover. One click serves it again with its old name, port and options and opens it in your browser (the last six are kept; *Clear* forgets them all).
 - Many folders at once, each on its own port (starts at 8080, next free port if busy).
