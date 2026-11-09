@@ -12,7 +12,7 @@ body:
     attributes:
       label: FolderServe version
       description: From the release you downloaded, or `brew list --cask --versions folderserve`.
-      placeholder: "0.1.6"
+      placeholder: "0.1.7"
     validations:
       required: true
   - type: input
