@@ -41,8 +41,8 @@ targets:
         CODE_SIGN_ENTITLEMENTS: FolderServe/FolderServe.entitlements
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
-        MARKETING_VERSION: "0.1.7"
-        CURRENT_PROJECT_VERSION: "8"
+        MARKETING_VERSION: "0.1.8"
+        CURRENT_PROJECT_VERSION: "9"
         SWIFT_VERSION: "5.10"
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "-"
