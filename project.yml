@@ -19,6 +19,13 @@ targets:
         # The API proxy forwards to whatever URL the user configures, including plain-http hosts.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        # Finder ▸ right-click a folder ▸ Services ▸ Serve with FolderServe (see FolderServeAppDelegate.serveFolders).
+        NSServices:
+          - NSMenuItem:
+              default: Serve with FolderServe
+            NSMessage: serveFolders
+            NSPortName: FolderServe
+            NSSendFileTypes: [public.folder]
         CFBundleDocumentTypes:
           - CFBundleTypeName: Folder
             CFBundleTypeRole: Viewer

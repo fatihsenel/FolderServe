@@ -117,3 +117,6 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
   consume (server filter plus status chip). `openWindow` is used from the row because the popover is a `MenuBarExtra`.
 - **Menu bar icon** (`MenuBarLabel`): the number is `ServerManager.attentionCount` (unseen failed requests plus servers in `.error`). Each logged request bumps `requestTick`; the label dims the glyph for 250 ms
   (`MenuBarBadge.shouldPulse`: off with Reduce Motion). The dim is a plain opacity change, not an animation, because a `MenuBarExtra` label is not animated reliably.
+- **Finder Service** (`NSServices` in `project.yml`, `FolderServeAppDelegate.serveFolders`): "Serve with FolderServe" on `public.folder`. The provider is set in `applicationDidFinishLaunching` (not in tests);
+  `folderURLs(in:)` keeps folders and `handleService` adds each through `addDropped`, waits for it to run and opens it with `BrowserOpener`. macOS reads `NSServices` when it indexes the app, so after a rebuild
+  run `/System/Library/CoreServices/pbs -update` to see a changed entry.

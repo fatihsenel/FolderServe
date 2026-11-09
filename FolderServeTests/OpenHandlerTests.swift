@@ -48,4 +48,33 @@ final class OpenHandlerTests: XCTestCase {
         await FolderServeAppDelegate.handleOpen(urls: [URL(string: "https://example.com")!], manager: manager) { _ in }
         XCTAssertTrue(manager.entries.isEmpty)
     }
+
+    func testServiceServesAndOpensEachFolder() async throws {
+        let a = base.appendingPathComponent("a"), b = base.appendingPathComponent("b")
+        try fm.createDirectory(at: a, withIntermediateDirectories: true)
+        try fm.createDirectory(at: b, withIntermediateDirectories: true)
+        var opened: [URL] = []
+        await FolderServeAppDelegate.handleService(urls: [a, b], manager: manager) { opened.append($0) }
+        XCTAssertEqual(manager.entries.count, 2)
+        XCTAssertEqual(opened.count, 2)
+        XCTAssertTrue(opened.allSatisfy { $0.host == "127.0.0.1" })
+    }
+
+    func testServiceReusesAFolderThatIsAlreadyServed() async throws {
+        var opened: [URL] = []
+        await FolderServeAppDelegate.handleService(urls: [base], manager: manager) { opened.append($0) }
+        await FolderServeAppDelegate.handleService(urls: [base], manager: manager) { opened.append($0) }
+        XCTAssertEqual(manager.entries.count, 1)
+        XCTAssertEqual(opened.count, 2)
+        XCTAssertEqual(opened[0], opened[1])
+    }
+
+    func testFolderURLsKeepsOnlyFolders() throws {
+        let file = base.appendingPathComponent("a.html")
+        try "x".write(to: file, atomically: true, encoding: .utf8)
+        let board = NSPasteboard(name: NSPasteboard.Name("folderserve-test-\(UUID().uuidString)"))
+        board.clearContents()
+        board.writeObjects([base as NSURL, file as NSURL])
+        XCTAssertEqual(FolderServeAppDelegate.folderURLs(in: board).map(\.lastPathComponent), [base.lastPathComponent])
+    }
 }

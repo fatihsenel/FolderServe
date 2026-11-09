@@ -13,6 +13,7 @@ final class FolderServeAppDelegate: NSObject, NSApplicationDelegate {
     /// (the app can live in the menu bar only).
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !Self.isRunningTests else { return }
+        NSApp.servicesProvider = self
         MainActor.assumeIsolated {
             Self.restoreServers(manager: AppServices.manager)
             Task { await AppServices.updates.checkIfDue() }
@@ -35,6 +36,37 @@ final class FolderServeAppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         Task { @MainActor in
             await Self.handleOpen(urls: urls, manager: AppServices.manager) { BrowserOpener.open($0) }
+        }
+    }
+
+    /// The Services entry "Serve with FolderServe" (Finder ▸ right-click a folder ▸ Services): serves the selected folders and opens them.
+    @objc func serveFolders(_ pasteboard: NSPasteboard, userData: String, error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        let urls = Self.folderURLs(in: pasteboard)
+        guard !urls.isEmpty else {
+            error.pointee = "No folder was selected." as NSString
+            return
+        }
+        Task { @MainActor in
+            await Self.handleService(urls: urls, manager: AppServices.manager) { BrowserOpener.open($0) }
+        }
+    }
+
+    /// The file URLs on a Services pasteboard that are folders.
+    static func folderURLs(in pasteboard: NSPasteboard) -> [URL] {
+        let objects = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        return objects.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
+    }
+
+    /// Serves each folder (a folder that is already served is reused) and calls `open` with its address once it runs.
+    @MainActor
+    static func handleService(urls: [URL], manager: ServerManager, open: @MainActor (URL) -> Void) async {
+        for url in urls {
+            let (id, _) = manager.addDropped(url: url)
+            for _ in 0..<250 {
+                if case .running = manager.statuses[id] { break }
+                try? await Task.sleep(nanoseconds: 20_000_000)
+            }
+            if case .running = manager.statuses[id], let target = manager.openURL(for: id) { open(target) }
         }
     }
 
