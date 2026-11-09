@@ -53,6 +53,7 @@ Rendered from the app's built-in sample data (no real folders or requests).
 
 - Drop a folder on the window, the Dock icon or the menu bar popover — it starts serving immediately. **⌘O** (File ▸ Add Folder…) opens the folder picker.
   Also works from Terminal: `open -a FolderServe ~/my-site`.
+- **Page console**: see the pages' console errors, warnings and uncaught errors in the app, also from a phone. See [Page console](#page-console).
 - **Mock responses**: answer a path with a saved response (status, type, body) instead of the real one. Save one from any request in Activity. See [Mock responses](#mock-responses).
 - **Finder**: right-click a folder ▸ **Services ▸ Serve with FolderServe** serves it and opens it in your browser, without opening the app or dragging. macOS leaves a new service switched off: tick **Serve with FolderServe** once in System Settings ▸ Keyboard ▸ Keyboard Shortcuts ▸ Services ▸ Files and Folders, and it appears in the right-click menu. Folders also work through *Open With*.
 - **Menu bar rows**: each server has Open (in your chosen browser), Copy URL and Start/Stop. Right-click a row for Open, Copy URL, Show in Finder, Show Requests, Share on network and Remove. A red number on a row means failed requests (4xx/5xx from pages; replays, DevTools fetches and the favicon probe are ignored) that you have not looked at; click it to see them in Activity. The menu bar icon shows that total plus any servers that failed to start next to it, and dims for a moment whenever a request comes in (not with Reduce Motion on).
@@ -229,6 +230,18 @@ remove) or the body, then **Send**. The host is always the server's current addr
 appears in Activity, and **Show in Activity** jumps to it. Edits are never written to disk.
 
 <img src="docs/screenshots/edit-replay.png" alt="The Edit & Replay sheet: method, path, headers, body, and the status of the answer" width="600">
+
+## Page console
+
+Turn on **Options ▸ Page console** for a server and **Activity ▸ Console** lists what its pages write to the browser console:
+`console.error`, `console.warn`, uncaught errors and rejected promises, each with the time, the page it came from and a copy button. It works
+for every device that opens the page, so with Share on you can read a phone's JavaScript errors on your Mac.
+
+It is off by default because it adds a small script to HTML pages that wraps the two console functions (the browser's own console still gets
+everything). Lines are held in memory only (the newest 500), a message is cut at 8,000 characters, and only the server's own pages can post them.
+Reload the page once after switching it on.
+
+<img src="docs/screenshots/activity-console.png" alt="Activity's Console tab listing an uncaught TypeError, a console error and a warning with their pages" width="800">
 
 ## Mock responses
 

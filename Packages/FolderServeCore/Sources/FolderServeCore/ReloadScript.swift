@@ -9,6 +9,14 @@ public enum ReloadScript {
     static let tag = Data("<script>\(source)</script>".utf8)
     private static let closingBody = Array("</body>".utf8)
 
+    /// The scripts an HTML page gets for these options: live reload before `</body>`, the console forwarder after `<head>`.
+    public static func decorate(_ html: Data, options: ServeOptions) -> Data {
+        var page = html
+        if options.liveReload { page = inject(into: page) }
+        if options.captureConsole { page = ConsoleMessage.inject(into: page) }
+        return page
+    }
+
     /// Inserts the reload script before the last (case-insensitive) `</body>`, or appends it.
     public static func inject(into html: Data) -> Data {
         let bytes = [UInt8](html)

@@ -48,7 +48,12 @@ enum PreviewData {
             line(a.id, "POST", "/uiapi/Account/Login", 200, 912, 1, ms: 1240), line(a.id, "GET", "/fonts/inter.woff2", 200, 48_000, 1),
             line(b.id, "GET", "/main-AB12.js", 200, 350_000, 1), line(b.id, "GET", "/logo.png", 200, 9_300, 1),
         ], kinds: [a.id: .angular, b.id: .react, d.id: .vue],
-        recents: [entry("landing-page"), entry("docs-preview")])
+        recents: [entry("landing-page"), entry("docs-preview")],
+        console: [
+            ConsoleLine(serverID: b.id, message: ConsoleMessage(date: now.addingTimeInterval(-40), level: .warn, text: "Each child in a list should have a unique \"key\" prop.", page: "/users")),
+            ConsoleLine(serverID: a.id, message: ConsoleMessage(date: now.addingTimeInterval(-12), level: .error, text: "Login failed: 401 Unauthorized {\"code\":\"bad_credentials\"}", page: "/login")),
+            ConsoleLine(serverID: b.id, message: ConsoleMessage(date: now.addingTimeInterval(-3), level: .uncaught, text: "TypeError: Cannot read properties of undefined (reading 'name') (/main-AB12.js:214)", page: "/users/42")),
+        ])
         return m
     }
 }
@@ -171,6 +176,10 @@ extension PreviewData {
     let s = PreviewData.runningServer()
     return ProxyEditorView(entryID: s.id, initialRules: s.manager.entries[0].options.proxyRules).environment(s.manager)
 }
+#Preview("Activity console") {
+    ActivityView(initialMode: .console).environment(PreviewData.manager(populated: true)).frame(width: 900, height: 500)
+}
+#Preview("Console") { ConsoleView(serverID: nil).environment(PreviewData.manager(populated: true)).frame(width: 800, height: 400) }
 #Preview("Mock editor") {
     let s = PreviewData.runningServer()
     return MockEditorView(entryID: s.id, initialRules: s.manager.entries[0].options.mocks).environment(s.manager)

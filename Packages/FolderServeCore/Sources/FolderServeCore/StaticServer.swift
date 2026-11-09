@@ -33,6 +33,13 @@ public final class StaticServer: @unchecked Sendable {
     private var watcher: FolderWatcher?
     private var pingTimer: DispatchSourceTimer?
 
+    private var _onConsole: (@Sendable ([ConsoleMessage]) -> Void)?
+    /// Called with the console lines a page posted (only with `captureConsole` on).
+    public var onConsole: (@Sendable ([ConsoleMessage]) -> Void)? {
+        get { lock.lock(); defer { lock.unlock() }; return _onConsole }
+        set { lock.lock(); defer { lock.unlock() }; _onConsole = newValue }
+    }
+
     public var onRequest: (@Sendable (RequestLogEntry) -> Void)? {
         get { lock.lock(); defer { lock.unlock() }; return _onRequest }
         set { lock.lock(); defer { lock.unlock() }; _onRequest = newValue }
@@ -192,6 +199,10 @@ public final class StaticServer: @unchecked Sendable {
             handleReloadStream(conn)
             return
         }
+        if req.path == ConsoleMessage.path {
+            receiveConsole(conn, req, buffered: Data(buffered))
+            return
+        }
         let corsOn = currentOptions.cors
         if corsOn {
             connHeaders[ObjectIdentifier(conn)] = Self.corsHeaders(for: req)
@@ -231,12 +242,40 @@ public final class StaticServer: @unchecked Sendable {
                      extra: ["Location": target])
         case .directoryListing(let dir):
             let html = DirectoryListing.html(directory: dir, urlPath: req.path, showDotfiles: opts.serveDotfiles)
-            let page = opts.liveReload ? ReloadScript.inject(into: Data(html.utf8)) : Data(html.utf8)
+            let page = ReloadScript.decorate(Data(html.utf8), options: opts)
             sendBody(conn, status: 200, contentType: "text/html; charset=utf-8", body: page,
                      method: req.method, path: req.path, head: isHead)
         case .file(let url):
-            sendFile(conn, url: url, req: req, head: isHead, liveReload: opts.liveReload)
+            sendFile(conn, url: url, req: req, head: isHead, liveReload: opts.liveReload || opts.captureConsole)
         }
+    }
+
+    // MARK: - Page console
+
+    /// Takes the lines the injected script posts. Only when the option is on, only from this server's own pages, and never logged as a request.
+    private func receiveConsole(_ conn: NWConnection, _ req: HTTPRequest, buffered: Data) {
+        func answer(_ status: Int) {
+            sendFinal(conn, Data(Self.head(status: status, headers: ["Content-Length": "0", "Connection": "close"]).utf8))
+        }
+        guard currentOptions.captureConsole, req.method == "POST" else { answer(404); return }
+        guard Self.isSameOrigin(req) else { answer(403); return }
+        guard let length = req.headers["content-length"].flatMap({ Int($0) }), length >= 0, length <= ConsoleMessage.maxPostBytes else { answer(413); return }
+        readBody(conn, have: buffered, need: length) { [weak self] body in
+            guard let self, let body else { return }
+            let messages = ConsoleMessage.parse(body)
+            if !messages.isEmpty { self.onConsole?(messages) }
+            answer(204)
+        }
+    }
+
+    /// A page of another site must not be able to write into the console log: when the browser says where the request
+    /// came from, it has to be this server.
+    static func isSameOrigin(_ req: HTTPRequest) -> Bool {
+        if let site = req.headers["sec-fetch-site"]?.lowercased(), site != "same-origin" { return false }
+        guard let origin = req.headers["origin"] else { return true }
+        guard let host = req.headers["host"]?.lowercased(), let url = URL(string: origin), let originHost = url.host?.lowercased() else { return false }
+        let authority = originHost + (url.port.map { ":\($0)" } ?? "")
+        return authority == host
     }
 
     // MARK: - Mocks
@@ -377,7 +416,7 @@ public final class StaticServer: @unchecked Sendable {
                 if rewritten != nil || injectable {
                     let base = rewritten ?? original
                     sendBody(conn, status: 200, contentType: MIMEType.forExtension(ext),
-                             body: injectable ? ReloadScript.inject(into: base) : base, method: req.method, path: req.path,
+                             body: injectable ? ReloadScript.decorate(base, options: currentOptions) : base, method: req.method, path: req.path,
                              head: head, extra: ["Accept-Ranges": "bytes"], servedFile: url.path, rewritten: rewritten != nil)
                     return
                 }

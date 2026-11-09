@@ -17,6 +17,9 @@ final class ServerManager {
     /// The folder the user asked to remove; the window shows a confirmation for it.
     private(set) var pendingRemoval: UUID?
     private(set) var log: [LogLine] = []
+    /// What served pages wrote to their console (servers with "Page console" on). In memory only, oldest dropped first.
+    private(set) var consoleLines: [ConsoleLine] = []
+    static let maxConsoleLines = 500
     /// Folders that were served before and then removed from the list, newest first (the menu bar offers them for one-click reuse).
     private(set) var recents: [ServerEntry] = []
     static let maxRecents = 6
@@ -169,6 +172,7 @@ final class ServerManager {
         entries.removeAll { $0.id == id }
         statuses[id] = nil
         projectKinds[id] = nil
+        consoleLines.removeAll { $0.serverID == id }
         unseenErrors[id] = nil
         persist()
     }
@@ -293,6 +297,22 @@ final class ServerManager {
     /// Removes logged requests: one server's, or everything when `serverID` is nil.
     func clearLog(for serverID: UUID?) {
         if let serverID { log.removeAll { $0.serverID == serverID }; unseenErrors[serverID] = nil } else { log.removeAll(); unseenErrors = [:] }
+    }
+
+    // MARK: - Page console
+
+    func appendConsole(_ messages: [ConsoleMessage], serverID: UUID) {
+        consoleLines.append(contentsOf: messages.map { ConsoleLine(serverID: serverID, message: $0) })
+        if consoleLines.count > Self.maxConsoleLines { consoleLines.removeFirst(consoleLines.count - Self.maxConsoleLines) }
+    }
+
+    /// Console lines, newest first; pass a server id to filter to that server.
+    func consoleLines(for serverID: UUID?) -> [ConsoleLine] {
+        (serverID.map { id in consoleLines.filter { $0.serverID == id } } ?? consoleLines).reversed()
+    }
+
+    func clearConsole(for serverID: UUID?) {
+        if let serverID { consoleLines.removeAll { $0.serverID == serverID } } else { consoleLines.removeAll() }
     }
 
     // MARK: - Menu bar helpers
@@ -447,6 +467,9 @@ final class ServerManager {
         server.onRequest = { [weak self] entry in
             Task { @MainActor in self?.append(LogLine(serverID: id, entry: entry)) }
         }
+        server.onConsole = { [weak self] messages in
+            Task { @MainActor in self?.appendConsole(messages, serverID: id) }
+        }
         servers[id] = server
         if !searching { statuses[id] = .running(port: port) }
     }
@@ -558,7 +581,8 @@ final class ServerManager {
 extension ServerManager {
     /// Seeds state for SwiftUI previews and snapshot tests without starting real servers.
     func loadPreview(entries: [ServerEntry], statuses: [UUID: ServerStatus], log: [LogLine] = [], kinds: [UUID: ProjectKind] = [:],
-                     recents: [ServerEntry] = []) {
+                     recents: [ServerEntry] = [], console: [ConsoleLine] = []) {
+        self.consoleLines = console
         self.recents = recents
         self.projectKinds = kinds
         self.entries = entries

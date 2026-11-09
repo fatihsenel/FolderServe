@@ -23,10 +23,12 @@ public struct ServeOptions: Codable, Equatable, Sendable {
     public var openPath = ""
     /// Saved answers for exact paths; a matching request gets one instead of the folder or a proxy target.
     public var mocks: [MockRule] = []
+    /// Forward the pages' console errors, warnings and uncaught errors to the app (a script is added to HTML pages). Off by default.
+    public var captureConsole = false
 
     public init(spaMode: Bool = true, liveReload: Bool = true, serveDotfiles: Bool = false, cors: Bool = false,
                 proxyRules: [ProxyRule] = [], caching: Bool = false, https: Bool = false, shareOnNetwork: Bool = false,
-                friendlyHost: Bool = false, openPath: String = "", mocks: [MockRule] = []) {
+                friendlyHost: Bool = false, openPath: String = "", mocks: [MockRule] = [], captureConsole: Bool = false) {
         self.spaMode = spaMode
         self.liveReload = liveReload
         self.serveDotfiles = serveDotfiles
@@ -38,6 +40,7 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         self.friendlyHost = friendlyHost
         self.openPath = openPath
         self.mocks = mocks
+        self.captureConsole = captureConsole
     }
 
     // Older saved settings lack newer keys; they default to off (or on, for the original switches).
@@ -54,5 +57,6 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         friendlyHost = try c.decodeIfPresent(Bool.self, forKey: .friendlyHost) ?? false
         openPath = try c.decodeIfPresent(String.self, forKey: .openPath) ?? ""
         mocks = try c.decodeIfPresent([MockRule].self, forKey: .mocks) ?? []
+        captureConsole = try c.decodeIfPresent(Bool.self, forKey: .captureConsole) ?? false
     }
 }

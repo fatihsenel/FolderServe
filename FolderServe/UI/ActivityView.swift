@@ -24,8 +24,12 @@ struct ActivityView: View {
     /// Text typed in the search field; every word must match a request for it to be listed.
     @State private var query: String
 
+    /// Requests, or what the pages wrote to their console.
+    @State private var mode: ActivityMode
+
     init(initialSelection: UUID? = nil, initiallyHovered: UUID? = nil, initialQuery: String = "", initiallySlowestFirst: Bool = false,
-         initialStatus: StatusFilter = .any) {
+         initialStatus: StatusFilter = .any, initialMode: ActivityMode = .requests) {
+        _mode = State(initialValue: initialMode)
         _statusFilter = State(initialValue: initialStatus)
         _selectedID = State(initialValue: initialSelection)
         _hoveredID = State(initialValue: initiallyHovered)
@@ -65,13 +69,13 @@ struct ActivityView: View {
     /// Title and controls. When the window is narrow the controls drop to their own row and shrink (icon-only buttons).
     private var header: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) { title; Spacer(minLength: 12); controls(compact: false) }
+            HStack(spacing: 10) { title; modeSwitch; Spacer(minLength: 12); controls(compact: false) }
             VStack(alignment: .leading, spacing: 10) {
-                title
+                HStack(spacing: 10) { title; modeSwitch }
                 HStack(spacing: 10) { controls(compact: false) }
             }
             VStack(alignment: .leading, spacing: 10) {
-                title
+                HStack(spacing: 10) { title; modeSwitch }
                 HStack(spacing: 10) { controls(compact: true) }
             }
         }
@@ -81,13 +85,56 @@ struct ActivityView: View {
         Text("Activity").font(.system(size: 30, weight: .bold, design: .rounded)).lineLimit(1).fixedSize()
     }
 
-    @ViewBuilder private func controls(compact: Bool) -> some View {
-        searchField(width: compact ? 150 : 220)
-        sortMenu
+    /// Requests | Console. Drawn by hand: ImageRenderer cannot draw a segmented Picker.
+    private var modeSwitch: some View {
+        HStack(spacing: 2) {
+            ForEach(ActivityMode.allCases) { m in
+                let n = m == .console ? manager.consoleLines(for: filter).count : 0
+                Button { mode = m; selectedID = nil } label: {
+                    HStack(spacing: 5) {
+                        Text(m.rawValue).font(.system(size: 12, weight: mode == m ? .semibold : .regular))
+                        if n > 0 {
+                            Text(String(n)).font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .padding(.horizontal, 5).padding(.vertical, 1).background(Capsule().fill(Theme.failed.opacity(0.85)))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(.white.opacity(mode == m ? 0.16 : 0)))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(m == .console ? "What the pages wrote to their console: errors, warnings and uncaught errors" : "Every request the servers answered")
+            }
+        }
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: 9).fill(.quaternary.opacity(0.5)))
+        .fixedSize()
+    }
+
+    private var serverPicker: some View {
         Picker("Server", selection: $filter) {
             Text("All servers").tag(UUID?.none)
             ForEach(manager.entries) { Text($0.displayName).tag(UUID?.some($0.id)) }
         }
+    }
+
+    @ViewBuilder private func controls(compact: Bool) -> some View {
+        if mode == .console {
+            serverPicker.frame(width: compact ? 150 : 200)
+            Button { manager.clearConsole(for: filter) } label: { Label("Clear", systemImage: "trash") }
+                .labelStyle(CompactLabelStyle(iconOnly: compact))
+                .disabled(manager.consoleLines(for: filter).isEmpty)
+                .help(filter == nil ? "Clear the console lines of all servers" : "Clear this server's console lines")
+        } else {
+            requestControls(compact: compact)
+        }
+    }
+
+    @ViewBuilder private func requestControls(compact: Bool) -> some View {
+        searchField(width: compact ? 150 : 220)
+        sortMenu
+        serverPicker
         .frame(width: compact ? 150 : 200)
         Button { exportHAR() } label: { Label("Export", systemImage: "square.and.arrow.up") }
             .labelStyle(CompactLabelStyle(iconOnly: compact))
@@ -118,6 +165,24 @@ struct ActivityView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
+            if mode == .console {
+                ConsoleView(serverID: filter)
+            } else {
+                requestsContent
+            }
+        }
+        .defaultFocus($listFocused, true)
+        // The details belong to the list that was on screen: close them when the list changes.
+        .onChange(of: category) { _, _ in selectedID = nil }
+        .onChange(of: statusFilter) { _, _ in selectedID = nil }
+        .onChange(of: filter) { _, _ in selectedID = nil }
+        .onChange(of: query) { _, _ in selectedID = nil }
+        .padding(28)
+    }
+
+    /// The request list with its chips and the detail panel.
+    private var requestsContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 categoryChips
                 statusChips
@@ -142,13 +207,6 @@ struct ActivityView: View {
             }
             .animation(.smooth(duration: 0.25), value: selectedID)
         }
-        .defaultFocus($listFocused, true)
-        // The details belong to the list that was on screen: close them when the list changes.
-        .onChange(of: category) { _, _ in selectedID = nil }
-        .onChange(of: statusFilter) { _, _ in selectedID = nil }
-        .onChange(of: filter) { _, _ in selectedID = nil }
-        .onChange(of: query) { _, _ in selectedID = nil }
-        .padding(28)
     }
 
     private func listCard(width: CGFloat) -> some View {
@@ -499,4 +557,9 @@ private struct CompactLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         if iconOnly { configuration.icon } else { Label(configuration) }
     }
+}
+
+enum ActivityMode: String, CaseIterable, Identifiable {
+    case requests = "Requests", console = "Console"
+    var id: String { rawValue }
 }
