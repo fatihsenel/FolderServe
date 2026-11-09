@@ -130,3 +130,6 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
   dropping the request if the client has gone. The clock for `durationMs` started on arrival, so Activity shows the wait. The Options row is hand-drawn buttons, and the card shows a "Slow" `OptionBadge`.
 - **Card buttons** (`ServerCardView`): `ViewThatFits` tries three rows in order: all labels, a compact row (Open, Finder and Remove as icons), then two rows. The buttons sit in their own `HStack`; as direct children
   of the outer stack each one took the outer 18 pt spacing and the row wrapped far too early.
+- **Settings scrolls** (`SettingsView`): the rows are taller than the smallest window, and an update notice takes more room, so the page is a `ScrollView` and every description has `.fixedSize(horizontal: false, vertical: true)`.
+  Without that the texts were cut to "…" and the notice was pushed out of the window. In snapshots the page is an overlay on `Color.clear` (no size of its own, like a scroll view at the top);
+  `testRenderSettingsWithUpdateBannerAtMinimumSize` renders the case.

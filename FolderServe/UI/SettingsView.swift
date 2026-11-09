@@ -10,9 +10,21 @@ struct SettingsView: View {
     @AppStorage(BrowserOpener.defaultsKey) private var browserID = ""
     @State private var browsers = BrowserOpener.installed()
 
+    /// The rows are taller than a small window (more so while an update notice is showing), so the page scrolls instead of
+    /// squeezing its texts to "…" and pushing the notice out of the window.
     var body: some View {
+        if isSnapshot {
+            // ImageRenderer does not draw ScrollView content: screenshots show the page as if scrolled to the top.
+            // An overlay takes no room of its own, like a scroll view, so a small window cuts the page at the bottom only.
+            Color.clear.overlay(alignment: .top) { content }.clipped()
+        } else {
+            ScrollView { content }
+        }
+    }
+
+    private var content: some View {
         @Bindable var manager = manager
-        VStack(alignment: .leading, spacing: 18) {
+        return VStack(alignment: .leading, spacing: 18) {
             Text("Settings").font(.system(size: 30, weight: .bold, design: .rounded))
             VStack(alignment: .leading, spacing: 18) {
                 SettingRow(title: "Start servers at launch",
@@ -39,8 +51,7 @@ struct SettingsView: View {
             }
             .card()
             Text("Servers listen on 127.0.0.1 only, so other devices cannot reach them — unless you turn on Share for a folder.")
-                .font(.footnote).foregroundStyle(.secondary)
-            Spacer(minLength: 0)
+                .font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
         .padding(28)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -53,7 +64,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Open pages in").font(.system(size: 15, weight: .semibold))
                 Text("The browser used by Open, Recent folders and files opened with FolderServe. “System default” follows your Mac's setting.")
-                    .font(.callout).foregroundStyle(.secondary)
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             if isSnapshot {
@@ -90,7 +101,7 @@ private struct SettingRow: View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.system(size: 15, weight: .semibold))
-                Text(detail).font(.callout).foregroundStyle(.secondary)
+                Text(detail).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             Toggle("", isOn: $isOn).labelsHidden().toggleStyle(GlowToggleStyle())
