@@ -48,6 +48,13 @@ struct LogLine: Identifiable, Equatable {
     var entry: RequestLogEntry
 }
 
+/// A console line from a served page, with the server it came from.
+struct ConsoleLine: Identifiable, Equatable {
+    var id: UUID { message.id }
+    let serverID: UUID
+    var message: ConsoleMessage
+}
+
 /// Opens the Activity page on one server and a status family (asked for by the menu bar).
 struct ActivityRequest: Equatable {
     var serverID: UUID

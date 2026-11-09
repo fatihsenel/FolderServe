@@ -20,6 +20,8 @@ struct OptionsPopoverView: View {
             row("Cache", "The browser re-checks files with an ETag for faster reloads. Live-reload pages are never cached.", \.caching)
             row("Name address", "Show and open this folder as \(HostSlug.make(entryName)).localhost instead of 127.0.0.1. Browsers and curl send *.localhost to this Mac.", \.friendlyHost)
             openAtRow
+            group("Debugging").padding(.top, 8)
+            row("Page console", "Show the pages' console errors, warnings and uncaught errors under Activity ▸ Console, also from a phone. Adds a small script to HTML pages.", \.captureConsole)
             group("Security").padding(.top, 8)
             row("HTTPS", "Serve over https:// with a self-signed localhost certificate. Your browser warns once.", \.https)
             row("CORS", "Lets pages from other origins read these files.", \.cors,
