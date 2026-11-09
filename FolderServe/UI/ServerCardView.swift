@@ -233,7 +233,7 @@ struct ServerCardView: View {
             })
     }
 
-    private func open() { if let url = manager.url(for: entryID) { NSWorkspace.shared.open(url) } }
+    private func open() { if let url = manager.openURL(for: entryID) { BrowserOpener.open(url) } }
 
     private func copyURL() {
         guard let url = manager.url(for: entryID) else { return }

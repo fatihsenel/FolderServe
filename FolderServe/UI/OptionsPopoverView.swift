@@ -4,7 +4,11 @@ import FolderServeCore
 /// The less-used switches of a folder, grouped, each with a line saying what it does.
 struct OptionsPopoverView: View {
     @Environment(ServerManager.self) private var manager
+    @Environment(\.isSnapshotRendering) private var isSnapshot
     let entryID: UUID
+    @State private var openAt = ""
+    @State private var openAtInvalid = false
+    @FocusState private var openAtFocused: Bool
 
     private var entryName: String { manager.entries.first { $0.id == entryID }?.displayName ?? "folder" }
     private var options: ServeOptions { manager.entries.first { $0.id == entryID }?.options ?? ServeOptions() }
@@ -15,6 +19,7 @@ struct OptionsPopoverView: View {
             row("SPA mode", "Serve index.html for unknown paths so client-side routers work.", \.spaMode)
             row("Cache", "The browser re-checks files with an ETag for faster reloads. Live-reload pages are never cached.", \.caching)
             row("Name address", "Show and open this folder as \(HostSlug.make(entryName)).localhost instead of 127.0.0.1. Browsers and curl send *.localhost to this Mac.", \.friendlyHost)
+            openAtRow
             group("Security").padding(.top, 8)
             row("HTTPS", "Serve over https:// with a self-signed localhost certificate. Your browser warns once.", \.https)
             row("CORS", "Lets pages from other origins read these files.", \.cors,
@@ -22,6 +27,40 @@ struct OptionsPopoverView: View {
         }
         .padding(16)
         .frame(width: 340)
+    }
+
+    /// The page the Open button opens (the site root when empty).
+    private var openAtRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Open at").font(.callout.weight(.medium))
+            Text("The page the Open button and Recent folders open, such as /docs/index.html or /app?tab=2. Empty opens the site root.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if isSnapshot {
+                Text(options.openPath.isEmpty ? "/" : options.openPath).font(.system(size: 12, design: .monospaced))
+                    .padding(.horizontal, 8).padding(.vertical, 5).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(.black.opacity(0.25)))
+            } else {
+                TextField("/", text: $openAt).font(.system(size: 12, design: .monospaced)).textFieldStyle(.roundedBorder)
+                    .focused($openAtFocused)
+                    .onSubmit(commitOpenAt)
+                    .onChange(of: openAtFocused) { _, focused in if !focused { commitOpenAt() } }
+                    .onAppear { openAt = options.openPath }
+                    .accessibilityLabel("Open at")
+            }
+            if openAtInvalid {
+                Text("That is not a path on this server. Use something like /docs/index.html.")
+                    .font(.caption).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    private func commitOpenAt() {
+        guard let clean = BrowserOpener.normalizedPath(openAt) else { openAtInvalid = true; return }
+        openAtInvalid = false
+        openAt = clean
+        guard clean != options.openPath else { return }
+        var o = options; o.openPath = clean; manager.setOptions(entryID, o)
     }
 
     private func group(_ title: String) -> some View {

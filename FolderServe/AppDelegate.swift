@@ -34,7 +34,7 @@ final class FolderServeAppDelegate: NSObject, NSApplicationDelegate {
     /// Folders/files dropped on the Dock icon, or passed via `open -a FolderServe <path>`.
     func application(_ application: NSApplication, open urls: [URL]) {
         Task { @MainActor in
-            await Self.handleOpen(urls: urls, manager: AppServices.manager) { NSWorkspace.shared.open($0) }
+            await Self.handleOpen(urls: urls, manager: AppServices.manager) { BrowserOpener.open($0) }
         }
     }
 

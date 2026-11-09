@@ -73,6 +73,12 @@ final class ServerManager {
         return nil
     }
 
+    /// The address the Open button uses: the server's URL plus the folder's "Open at" page.
+    func openURL(for id: UUID) -> URL? {
+        guard let base = url(for: id) else { return nil }
+        return BrowserOpener.target(base: base, path: entries.first { $0.id == id }?.options.openPath ?? "")
+    }
+
     /// `127.0.0.1`, or `name.localhost` when the folder's friendly address is on.
     func hostName(for id: UUID) -> String {
         guard let entry = entries.first(where: { $0.id == id }), entry.options.friendlyHost else { return "127.0.0.1" }

@@ -225,6 +225,13 @@ whole (bodies are only kept for proxied calls, up to 32 KB). `Authorization` and
 Each card has a **Finder** button (also in the right-click menu on the folder's name) that opens the folder in Finder.
 Folders that are missing show no Finder button; use Relocate… instead.
 
+## Choose the browser and the page to open
+
+**Settings ▸ Open pages in** picks the browser used by a card's **Open** button, the menu bar's Recent folders and files opened with FolderServe:
+the system default, or any of Safari, Chrome, Firefox, Edge, Brave, Arc, Opera, Vivaldi, Chromium, Orion and Zen that is installed.
+A folder's **Options ▸ Open at** sets the page that opens instead of the site root, for example `/docs/index.html` or `/app?tab=2`
+(it must be a path on the server; other addresses are refused).
+
 ## Name address
 
 Turn on **Name address** in a folder's Options to show and open it as `my-site.localhost:8080` (the folder's name, lower-cased)

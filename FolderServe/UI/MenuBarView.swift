@@ -158,8 +158,8 @@ struct MenuBarRecents: View {
 
     private func serve(_ recent: ServerEntry) {
         Task {
-            guard let id = await manager.reopenRecent(recent.id), let url = manager.url(for: id) else { return }
-            NSWorkspace.shared.open(url)
+            guard let id = await manager.reopenRecent(recent.id), let url = manager.openURL(for: id) else { return }
+            BrowserOpener.open(url)
         }
     }
 }
