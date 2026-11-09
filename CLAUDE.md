@@ -107,3 +107,5 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
   (unless they look like a page or script) and needs at least one stylesheet that still does. CI runs an older macOS than development machines: test with explicit temp names.
 - **Activity filters** combine: server picker, search words, category chips (`RequestCategory`) and status chips (`StatusFilter`: any / success 2xx / redirects 3xx / errors 4xx+). Each chip row counts what the *other* filters leave,
   and the HAR export respects all of them (`lines`).
+- **Edit & Replay** (`EditableRequest`, `EditReplayView`): the sheet edits a copy of the logged request; `EditableRequest.urlRequest(base:)` validates it (path-only target, header-name tokens, no control
+  characters via `unicodeScalars`, reserved headers refused) and `RequestReplay.send` sends it. The sheet needs snapshot stand-ins for its pickers and text fields like every other control.

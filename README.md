@@ -220,6 +220,11 @@ headers and body. The answer shows up in Activity like any other request, marked
 header, which is never passed on to a proxy target). It needs the server to be running, and a body that was captured
 whole (bodies are only kept for proxied calls, up to 32 KB). `Authorization` and cookies are sent as they were logged.
 
+**Edit & Replay…** opens the same request in a sheet first: change the method, the path and query, any header (add, edit or
+remove) or the body, then **Send**. The host is always the server's current address; `Host`, `Content-Length` and
+`Connection` are set for you. A body that was cut off or dropped starts empty, so you type the one to send. The new request
+appears in Activity, and **Show in Activity** jumps to it. Edits are never written to disk.
+
 ## Show in Finder
 
 Each card has a **Finder** button (also in the right-click menu on the folder's name) that opens the folder in Finder.

@@ -206,7 +206,11 @@ struct ActivityView: View {
     }
 
     private func detail(_ line: LogLine) -> some View {
-        RequestDetailView(line: line) { selectedID = nil }
+        RequestDetailView(line: line, onShowReplay: { id in
+            // Make sure the request that was just sent is not hidden by a filter.
+            category = nil; statusFilter = .any; query = ""
+            selectedID = id
+        }) { selectedID = nil }
     }
 
     /// Newest first (the default) or slowest first.

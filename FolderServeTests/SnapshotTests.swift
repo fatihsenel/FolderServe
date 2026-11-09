@@ -131,6 +131,21 @@ final class SnapshotTests: XCTestCase {
         try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-activity-errors.png"))
     }
 
+    /// The Edit & Replay sheet for the sample login request (a POST with a JSON body), after a send.
+    func testRenderEditReplaySnapshot() throws {
+        let m = PreviewData.manager(populated: true)
+        let line = try XCTUnwrap(m.log.first { $0.entry.method == "POST" })
+        let view = EditReplayView(line: line, initialState: .done(status: 401, ms: 38, newID: UUID()))
+            .environment(m)
+            .environment(\.colorScheme, .dark)
+            .environment(\.isSnapshotRendering, true)
+            .background(Theme.background(.dark))
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-edit-replay.png"))
+    }
+
     /// Activity sorted slowest first, with the marker on the slowest request.
     func testRenderActivitySlowestFirstSnapshot() throws {
         let view = ActivityView(initiallySlowestFirst: true)
