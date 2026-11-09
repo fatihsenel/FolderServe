@@ -47,3 +47,17 @@ struct LogLine: Identifiable, Equatable {
     let serverID: UUID
     var entry: RequestLogEntry
 }
+
+/// Opens the Activity page on one server and a status family (asked for by the menu bar).
+struct ActivityRequest: Equatable {
+    var serverID: UUID
+    var status: StatusFilter
+}
+
+extension RequestLogEntry {
+    /// A failed request worth a badge: 4xx/5xx that a page made. Replays, requests no page made and the
+    /// browser's favicon probe (almost always a 404) do not count.
+    var countsAsUnseenError: Bool {
+        status >= 400 && !isReplay && !isDetached && path.split(separator: "?").first.map(String.init) != "/favicon.ico"
+    }
+}

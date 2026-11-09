@@ -27,7 +27,10 @@ struct FolderServeApp: App {
         MenuBarExtra {
             MenuBarView().environment(manager)
         } label: {
-            Image(nsImage: Self.menuBarGlyph)
+            HStack(spacing: 3) {
+                Image(nsImage: Self.menuBarGlyph)
+                if let badge = MenuBarBadge.text(forErrors: manager.unseenErrorTotal) { Text(badge) }
+            }
         }
         .menuBarExtraStyle(.window)
     }

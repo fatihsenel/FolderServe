@@ -112,3 +112,6 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
   path on the server. Settings' picker and the Options text field need snapshot stand-ins.
 - **Edit & Replay** (`EditableRequest`, `EditReplayView`): the sheet edits a copy of the logged request; `EditableRequest.urlRequest(base:)` validates it (path-only target, header-name tokens, no control
   characters via `unicodeScalars`, reserved headers refused) and `RequestReplay.send` sends it. The sheet needs snapshot stand-ins for its pickers and text fields like every other control.
+- **Menu bar actions** (`MenuBarRow`, `MenuBarBadge`): rows have Open / Copy URL / Start-Stop and a context menu. `ServerManager.unseenErrors` counts failed requests per server in `append` (rule: `RequestLogEntry.countsAsUnseenError`: 4xx/5xx, not replays,
+  not detached, not `/favicon.ico`); the icon label shows the total, and it clears per server when the row's red number is tapped, or on stop, remove or clear log. Tapping it sets `ServerManager.activityRequest`, which `MainWindow` and `ActivityView`
+  consume (server filter plus status chip). `openWindow` is used from the row because the popover is a `MenuBarExtra`.
