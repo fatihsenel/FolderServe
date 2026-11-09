@@ -115,3 +115,5 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
 - **Menu bar actions** (`MenuBarRow`, `MenuBarBadge`): rows have Open / Copy URL / Start-Stop and a context menu. `ServerManager.unseenErrors` counts failed requests per server in `append` (rule: `RequestLogEntry.countsAsUnseenError`: 4xx/5xx, not replays,
   not detached, not `/favicon.ico`); the icon label shows the total, and it clears per server when the row's red number is tapped, or on stop, remove or clear log. Tapping it sets `ServerManager.activityRequest`, which `MainWindow` and `ActivityView`
   consume (server filter plus status chip). `openWindow` is used from the row because the popover is a `MenuBarExtra`.
+- **Menu bar icon** (`MenuBarLabel`): the number is `ServerManager.attentionCount` (unseen failed requests plus servers in `.error`). Each logged request bumps `requestTick`; the label dims the glyph for 250 ms
+  (`MenuBarBadge.shouldPulse`: off with Reduce Motion). The dim is a plain opacity change, not an animation, because a `MenuBarExtra` label is not animated reliably.

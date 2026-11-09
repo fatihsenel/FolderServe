@@ -235,4 +235,30 @@ enum MenuBarBadge {
     static func text(forErrors count: Int) -> String? {
         count <= 0 ? nil : (count > 9 ? "9+" : String(count))
     }
+
+    /// A request dims the icon for a moment, unless Reduce Motion is on or it is already dimmed.
+    static func shouldPulse(reduceMotion: Bool, alreadyPulsing: Bool) -> Bool { !reduceMotion && !alreadyPulsing }
+}
+
+/// The menu bar icon: the glyph, a number when something needs a look, and a short dim when a request comes in.
+struct MenuBarLabel: View {
+    @Environment(ServerManager.self) private var manager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let glyph: NSImage
+    @State private var pulsing = false
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(nsImage: glyph).opacity(pulsing ? 0.35 : 1)
+            if let badge = MenuBarBadge.text(forErrors: manager.attentionCount) { Text(badge) }
+        }
+        .onChange(of: manager.requestTick) {
+            guard MenuBarBadge.shouldPulse(reduceMotion: reduceMotion, alreadyPulsing: pulsing) else { return }
+            pulsing = true
+            Task {
+                try? await Task.sleep(for: .milliseconds(250))
+                pulsing = false
+            }
+        }
+    }
 }

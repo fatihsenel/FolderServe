@@ -58,4 +58,28 @@ final class MenuBarActionsTests: XCTestCase {
         XCTAssertEqual(MenuBarBadge.text(forErrors: 9), "9")
         XCTAssertEqual(MenuBarBadge.text(forErrors: 10), "9+")
     }
+
+    func testFailedServersCountTowardTheBadge() {
+        let (m, id) = manager()
+        XCTAssertEqual(m.attentionCount, 0)
+        m.append(LogLine(serverID: id, entry: entry(404)))
+        XCTAssertEqual(m.attentionCount, 1)
+        let e = ServerEntry(id: UUID(), bookmark: Data(), folderPath: "/tmp/b", preferredPort: nil, options: ServeOptions(), autoStart: true)
+        m.loadPreview(entries: [e], statuses: [e.id: .error("Port 3000 is already in use")])
+        XCTAssertEqual(m.failedServerCount, 1)
+        XCTAssertEqual(m.attentionCount, 1)
+    }
+
+    func testEveryRequestAdvancesTheTick() {
+        let (m, id) = manager()
+        let before = m.requestTick
+        m.append(LogLine(serverID: id, entry: entry(200)))
+        XCTAssertEqual(m.requestTick, before + 1)
+    }
+
+    func testPulseRules() {
+        XCTAssertTrue(MenuBarBadge.shouldPulse(reduceMotion: false, alreadyPulsing: false))
+        XCTAssertFalse(MenuBarBadge.shouldPulse(reduceMotion: true, alreadyPulsing: false))
+        XCTAssertFalse(MenuBarBadge.shouldPulse(reduceMotion: false, alreadyPulsing: true))
+    }
 }
