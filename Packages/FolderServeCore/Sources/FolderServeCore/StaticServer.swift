@@ -203,6 +203,17 @@ public final class StaticServer: @unchecked Sendable {
             receiveConsole(conn, req, buffered: Data(buffered))
             return
         }
+        // Slow network: hold every answer back. The time shows in Activity, because the clock started when the request arrived.
+        let delay = currentOptions.effectiveDelayMs
+        guard delay > 0 else { handle(conn, req, buffered: buffered); return }
+        let id = ObjectIdentifier(conn)
+        queue.asyncAfter(deadline: .now() + .milliseconds(delay)) { [weak self] in
+            guard let self, self.connections[id] != nil else { return }   // the client gave up while waiting
+            self.handle(conn, req, buffered: buffered)
+        }
+    }
+
+    private func handle(_ conn: NWConnection, _ req: HTTPRequest, buffered: Data) {
         let corsOn = currentOptions.cors
         if corsOn {
             connHeaders[ObjectIdentifier(conn)] = Self.corsHeaders(for: req)

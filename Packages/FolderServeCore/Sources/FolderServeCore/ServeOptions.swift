@@ -25,10 +25,16 @@ public struct ServeOptions: Codable, Equatable, Sendable {
     public var mocks: [MockRule] = []
     /// Forward the pages' console errors, warnings and uncaught errors to the app (a script is added to HTML pages). Off by default.
     public var captureConsole = false
+    /// Wait this long before answering every request, to see loading states (0: off). Live reload's own connection is not delayed.
+    public var responseDelayMs = 0
+    public static let delayChoices = [0, 200, 500, 1000, 2000, 5000]
+    public static let maxDelayMs = 10_000
+    /// The delay actually applied: never negative, never more than ten seconds.
+    public var effectiveDelayMs: Int { min(max(responseDelayMs, 0), Self.maxDelayMs) }
 
     public init(spaMode: Bool = true, liveReload: Bool = true, serveDotfiles: Bool = false, cors: Bool = false,
                 proxyRules: [ProxyRule] = [], caching: Bool = false, https: Bool = false, shareOnNetwork: Bool = false,
-                friendlyHost: Bool = false, openPath: String = "", mocks: [MockRule] = [], captureConsole: Bool = false) {
+                friendlyHost: Bool = false, openPath: String = "", mocks: [MockRule] = [], captureConsole: Bool = false, responseDelayMs: Int = 0) {
         self.spaMode = spaMode
         self.liveReload = liveReload
         self.serveDotfiles = serveDotfiles
@@ -41,6 +47,7 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         self.openPath = openPath
         self.mocks = mocks
         self.captureConsole = captureConsole
+        self.responseDelayMs = responseDelayMs
     }
 
     // Older saved settings lack newer keys; they default to off (or on, for the original switches).
@@ -58,5 +65,6 @@ public struct ServeOptions: Codable, Equatable, Sendable {
         openPath = try c.decodeIfPresent(String.self, forKey: .openPath) ?? ""
         mocks = try c.decodeIfPresent([MockRule].self, forKey: .mocks) ?? []
         captureConsole = try c.decodeIfPresent(Bool.self, forKey: .captureConsole) ?? false
+        responseDelayMs = try c.decodeIfPresent(Int.self, forKey: .responseDelayMs) ?? 0
     }
 }

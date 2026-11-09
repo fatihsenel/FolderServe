@@ -74,4 +74,13 @@ final class ConsoleTests: XCTestCase {
         XCTAssertEqual(ConsoleView.color(.uncaught), Theme.failed)
         XCTAssertEqual(ServeOptions(captureConsole: true).enabledExtrasCount, ServeOptions().enabledExtrasCount + 1)
     }
+
+    func testDelayLabelsAndCount() {
+        XCTAssertEqual(ServeOptions.delayLabel(0), "Off")
+        XCTAssertEqual(ServeOptions.delayLabel(200), "200 ms")
+        XCTAssertEqual(ServeOptions.delayLabel(1000), "1 s")
+        XCTAssertEqual(ServeOptions.delayLabel(2500), "2.5 s")
+        XCTAssertEqual(ServeOptions(responseDelayMs: 500).enabledExtrasCount, ServeOptions().enabledExtrasCount + 1)
+        XCTAssertEqual(ServeOptions(responseDelayMs: -1).enabledExtrasCount, ServeOptions().enabledExtrasCount)
+    }
 }
