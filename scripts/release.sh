@@ -50,7 +50,8 @@ xcodegen generate >/dev/null
 rm -rf "$BUILD_DIR"; mkdir -p "$BUILD_DIR" "$OUT_DIR"
 
 echo "== Archiving (Release)"
-xcodebuild archive -scheme FolderServe -configuration Release -destination 'generic/platform=macOS' \
+# The project is named so a stray duplicate (iCloud leaves "FolderServe 2.xcodeproj" now and then) cannot stop the build.
+xcodebuild archive -project FolderServe.xcodeproj -scheme FolderServe -configuration Release -destination 'generic/platform=macOS' \
   -archivePath "$ARCHIVE" \
   DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$IDENTITY" \
   OTHER_CODE_SIGN_FLAGS="--timestamp" ENABLE_HARDENED_RUNTIME=YES \
