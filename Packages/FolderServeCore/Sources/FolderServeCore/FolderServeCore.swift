@@ -1,3 +1,3 @@
 public enum FolderServeCore {
-    public static let version = "0.1.8"
+    public static let version = "0.1.9"
 }
