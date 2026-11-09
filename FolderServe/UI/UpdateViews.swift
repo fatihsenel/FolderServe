@@ -26,7 +26,7 @@ struct UpdateBanner: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("FolderServe \(release.version) is available").font(.system(size: 13, weight: .semibold))
                 Text("You have \(current) · Homebrew: \(UpdateChecker.brewCommand)")
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
             Button("Copy brew command") { onCopyBrew(); copied = true }

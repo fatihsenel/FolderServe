@@ -204,6 +204,22 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// Settings at the window's smallest size while an update notice is showing: the notice must stay whole and no row may be cut to "…".
+    func testRenderSettingsWithUpdateBannerAtMinimumSize() async throws {
+        let release = LatestRelease(tag: "v0.1.6", version: AppVersion("0.1.6")!,
+                                    url: URL(string: "https://github.com/fatihsenel/FolderServe/releases/tag/v0.1.6")!)
+        let checker = UpdateChecker(currentVersion: AppVersion("0.1.5"), defaults: UserDefaults(suiteName: "snap-\(UUID().uuidString)")!, fetch: { release })
+        await checker.checkNow()
+        let view = MainWindow(initialSelection: .settings)
+            .environment(PreviewData.manager(populated: true)).environment(\.updates, checker)
+            .environment(\.colorScheme, .dark).environment(\.isSnapshotRendering, true)
+            .frame(width: 860, height: 560)
+        let renderer = ImageRenderer(content: view); renderer.scale = 2
+        let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
+        let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
+        try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("snap-settings-small-update.png"))
+    }
+
     func testRenderMainWindowSnapshots() throws {
         try render("empty-dark", populated: false, scheme: .dark)
         try render("populated-dark", populated: true, scheme: .dark)
