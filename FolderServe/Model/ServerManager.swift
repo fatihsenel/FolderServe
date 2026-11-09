@@ -20,6 +20,10 @@ final class ServerManager {
     /// Folders that were served before and then removed from the list, newest first (the menu bar offers them for one-click reuse).
     private(set) var recents: [ServerEntry] = []
     static let maxRecents = 6
+    /// Failed requests per server that the user has not looked at yet (the menu bar icon shows their total).
+    private(set) var unseenErrors: [UUID: Int] = [:]
+    /// Set by the menu bar: the main window opens Activity on this server and status, then clears it.
+    var activityRequest: ActivityRequest?
     /// Global setting: serve dotfiles (e.g. .env) from every folder. Off by default.
     private(set) var serveDotfiles: Bool
     /// Global setting: start the servers that were running when the app last quit.
@@ -163,6 +167,7 @@ final class ServerManager {
         entries.removeAll { $0.id == id }
         statuses[id] = nil
         projectKinds[id] = nil
+        unseenErrors[id] = nil
         persist()
     }
 
@@ -231,6 +236,7 @@ final class ServerManager {
     func stop(_ id: UUID) {
         teardown(id)
         statuses[id] = .stopped
+        unseenErrors[id] = nil
         setAutoStart(id, false)
     }
 
@@ -284,7 +290,27 @@ final class ServerManager {
 
     /// Removes logged requests: one server's, or everything when `serverID` is nil.
     func clearLog(for serverID: UUID?) {
-        if let serverID { log.removeAll { $0.serverID == serverID } } else { log.removeAll() }
+        if let serverID { log.removeAll { $0.serverID == serverID }; unseenErrors[serverID] = nil } else { log.removeAll(); unseenErrors = [:] }
+    }
+
+    // MARK: - Menu bar helpers
+
+    /// Failed requests nobody has looked at yet, over all servers.
+    var unseenErrorTotal: Int { unseenErrors.values.reduce(0, +) }
+
+    /// The user has seen (or dealt with) this server's failures.
+    func markErrorsSeen(_ id: UUID) { unseenErrors[id] = nil }
+
+    /// Asks the main window to show Activity for one server, filtered by status.
+    func showActivity(for id: UUID, status: StatusFilter = .any) {
+        activityRequest = ActivityRequest(serverID: id, status: status)
+    }
+
+    /// Turns Share on or off for a server (restarts it when it runs, like the card's toggle).
+    func toggleShare(_ id: UUID) {
+        guard var options = entries.first(where: { $0.id == id })?.options else { return }
+        options.shareOnNetwork.toggle()
+        setOptions(id, options)
     }
 
     /// Replaces the folder's API proxy rules (applied to a running server immediately).
@@ -403,6 +429,7 @@ final class ServerManager {
 
     func append(_ line: LogLine) {
         log.append(line)
+        if line.entry.countsAsUnseenError { unseenErrors[line.serverID, default: 0] += 1 }
         if log.count > Self.maxLogLines { log.removeFirst(log.count - Self.maxLogLines) }
         if line.entry.capturedBodyBytes > 0 { enforceBodyBudget() }
     }
@@ -512,6 +539,7 @@ extension ServerManager {
         self.entries = entries
         self.statuses = statuses
         self.log = log
+        self.unseenErrors = log.filter { $0.entry.countsAsUnseenError }.reduce(into: [:]) { $0[$1.serverID, default: 0] += 1 }
     }
 }
 #endif

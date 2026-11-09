@@ -100,6 +100,22 @@ struct ActivityView: View {
     }
 
     var body: some View {
+        content
+            .onAppear { applyRequest() }
+            .onChange(of: manager.activityRequest) { applyRequest() }
+    }
+
+    /// The menu bar can ask for one server's failures: show them, then forget the request.
+    private func applyRequest() {
+        guard let request = manager.activityRequest else { return }
+        filter = request.serverID
+        statusFilter = request.status
+        category = nil
+        query = ""
+        manager.activityRequest = nil
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
             VStack(alignment: .leading, spacing: 8) {

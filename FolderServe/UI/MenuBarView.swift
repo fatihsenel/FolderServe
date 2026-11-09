@@ -65,6 +65,7 @@ struct MenuBarView: View {
 
 private struct MenuBarRow: View {
     @Environment(ServerManager.self) private var manager
+    @Environment(\.openWindow) private var openWindow
     let entry: ServerEntry
     private var status: ServerStatus { manager.statuses[entry.id] ?? .stopped }
     private var isRunning: Bool { if case .running = status { return true } else { return false } }
@@ -82,6 +83,18 @@ private struct MenuBarRow: View {
                 Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 8)
+            if errorCount > 0 {
+                Button { showErrors() } label: {
+                    Text(errorCount > 99 ? "99+" : String(errorCount))
+                        .font(.system(size: 10, weight: .semibold, design: .rounded)).foregroundStyle(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Theme.failed, in: Capsule())
+                }
+                .help("\(errorCount) failed request\(errorCount == 1 ? "" : "s") — show them in Activity")
+                .accessibilityLabel("\(errorCount) failed requests")
+            }
+            Button { openInBrowser() } label: { Image(systemName: "safari") }
+                .disabled(!isRunning).help("Open in browser")
             Button { copyURL() } label: { Image(systemName: "doc.on.doc") }
                 .disabled(!isRunning).help("Copy URL")
             Button { isRunning ? manager.stop(entry.id) : manager.start(entry.id) } label: {
@@ -102,6 +115,42 @@ private struct MenuBarRow: View {
                     .fill(Theme.running.opacity(manager.highlightedIDs.contains(entry.id) ? 0.16 : 0)))
                 .animation(.smooth(duration: 0.5), value: manager.highlightedIDs.contains(entry.id))
                 .allowsHitTesting(false))
+        .contextMenu { menuItems }
+    }
+
+    private var errorCount: Int { manager.unseenErrors[entry.id] ?? 0 }
+
+    @ViewBuilder private var menuItems: some View {
+        Button("Open in Browser") { openInBrowser() }.disabled(!isRunning)
+        Button("Copy URL") { copyURL() }.disabled(!isRunning)
+        if status != .folderMissing { Button("Show in Finder") { FinderReveal.reveal(path: entry.folderPath) } }
+        Button("Show Requests") { showActivity(.any) }
+        Divider()
+        Button { manager.toggleShare(entry.id) } label: {
+            if entry.options.shareOnNetwork { Label("Share on network", systemImage: "checkmark") } else { Text("Share on network") }
+        }
+        Divider()
+        Button("Remove…") { openApp(); manager.requestRemoval(entry.id) }
+    }
+
+    private func openInBrowser() {
+        guard let url = manager.openURL(for: entry.id) else { return }
+        BrowserOpener.open(url)
+    }
+
+    private func showErrors() {
+        manager.markErrorsSeen(entry.id)
+        showActivity(.errors)
+    }
+
+    private func showActivity(_ status: StatusFilter) {
+        manager.showActivity(for: entry.id, status: status)
+        openApp()
+    }
+
+    private func openApp() {
+        openWindow(id: "main")
+        NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
     private var detail: String {
@@ -178,5 +227,12 @@ private struct MenuBarDropModifier: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// The small number next to the menu bar icon when pages have failed requests nobody has looked at.
+enum MenuBarBadge {
+    static func text(forErrors count: Int) -> String? {
+        count <= 0 ? nil : (count > 9 ? "9+" : String(count))
     }
 }

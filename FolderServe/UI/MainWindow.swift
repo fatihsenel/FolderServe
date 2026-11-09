@@ -38,6 +38,8 @@ struct MainWindow: View {
             }
             .animation(.easeOut(duration: 0.18), value: manager.pendingRemoval)
         }
+        .onAppear { if manager.activityRequest != nil { selection = .activity } }
+        .onChange(of: manager.activityRequest) { if manager.activityRequest != nil { selection = .activity } }
         .background { if !isSnapshot { WindowReader { SplashGate.shared.hideIfNeeded($0) } } }
     }
 }
