@@ -110,3 +110,5 @@ cannot be captured — seed state through initialisers (`ActivityView(initiallyH
 - **Open in a browser** (`BrowserOpener`): every "open this server" goes through `BrowserOpener.open` (card Open, menu bar Recent folders, files passed to the app); it reads the browser's bundle id from
   `UserDefaults` (`openBrowserID`, empty = system default; an uninstalled browser falls back to the default). `ServeOptions.openPath` is appended by `ServerManager.openURL(for:)`; `normalizedPath` refuses anything that is not a
   path on the server. Settings' picker and the Options text field need snapshot stand-ins.
+- **Edit & Replay** (`EditableRequest`, `EditReplayView`): the sheet edits a copy of the logged request; `EditableRequest.urlRequest(base:)` validates it (path-only target, header-name tokens, no control
+  characters via `unicodeScalars`, reserved headers refused) and `RequestReplay.send` sends it. The sheet needs snapshot stand-ins for its pickers and text fields like every other control.

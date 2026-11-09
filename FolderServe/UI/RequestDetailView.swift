@@ -24,17 +24,22 @@ struct RequestDetailView: View {
     let line: LogLine
     var initialTab: DetailTab = .headers
     var preloaded: LoadedContent?
+    /// Called with the id of a request sent from Edit & Replay when the user chooses "Show in Activity".
+    var onShowReplay: ((UUID) -> Void)?
     let onClose: () -> Void
 
     @State private var tab: DetailTab
     @State private var content: LoadedContent?
     @State private var copiedCurl = false
     @State private var replay: ReplayState = .idle
+    @State private var editing = false
 
-    init(line: LogLine, initialTab: DetailTab = .headers, preloaded: LoadedContent? = nil, onClose: @escaping () -> Void) {
+    init(line: LogLine, initialTab: DetailTab = .headers, preloaded: LoadedContent? = nil,
+         onShowReplay: ((UUID) -> Void)? = nil, onClose: @escaping () -> Void) {
         self.line = line
         self.initialTab = initialTab
         self.preloaded = preloaded
+        self.onShowReplay = onShowReplay
         self.onClose = onClose
         _tab = State(initialValue: initialTab)
         _content = State(initialValue: preloaded)
@@ -106,6 +111,7 @@ struct RequestDetailView: View {
                 .buttonStyle(.plain).font(.caption).foregroundStyle(copiedCurl ? Theme.running : .secondary)
                 .help("Copy a curl command that repeats this request, with its headers and body")
                 replayButton
+                editReplayButton
                 if entry.isReplay {
                     Text("Replayed").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
                         .padding(.horizontal, 7).padding(.vertical, 2).background(Capsule().fill(.white.opacity(0.1)))
@@ -139,6 +145,16 @@ struct RequestDetailView: View {
         .disabled(base == nil || replay == .sending)
         .help(base == nil ? "Start the server to replay this request" : "Send this request again to the server, with the same headers and body")
         .onChange(of: line.id) { _, _ in replay = .idle }
+    }
+
+    /// Opens the sheet to change the method, address, headers or body before sending the request again.
+    private var editReplayButton: some View {
+        Button { editing = true } label: { Label("Edit & Replay…", systemImage: "square.and.pencil") }
+            .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
+            .disabled(manager.url(for: line.serverID) == nil)
+            .help(manager.url(for: line.serverID) == nil ? "Start the server to replay this request"
+                  : "Change the method, address, headers or body, then send it again")
+            .sheet(isPresented: $editing) { EditReplayView(line: line, onShow: onShowReplay) }
     }
 
     private func startReplay(base: URL?) {
