@@ -164,7 +164,7 @@ final class SnapshotTests: XCTestCase {
         let view = MainWindow(initialSelection: .servers)
             .environment(PreviewData.manager(populated: true))
             .environment(\.colorScheme, .dark).environment(\.isSnapshotRendering, true)
-            .frame(width: 1000, height: 1300)
+            .frame(width: 1000, height: 1060)
         let renderer = ImageRenderer(content: view); renderer.scale = 2
         let png = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(renderer.nsImage?.tiffRepresentation))?.representation(using: .png, properties: [:]))
         let dir = ProcessInfo.processInfo.environment["FOLDERSERVE_SNAPSHOT_DIR"] ?? NSTemporaryDirectory()
