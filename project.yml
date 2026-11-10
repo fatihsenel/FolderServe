@@ -19,6 +19,10 @@ targets:
         # The API proxy forwards to whatever URL the user configures, including plain-http hosts.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        # Standard TLS from the system only (the HTTPS option); declared so App Store Connect does not ask on every upload.
+        ITSAppUsesNonExemptEncryption: false
+        # Share on network makes the folder reachable from other devices on the same network.
+        NSLocalNetworkUsageDescription: "FolderServe makes a folder reachable from other devices on your network, only while Share is switched on."
         # Finder ▸ right-click a folder ▸ Services ▸ Serve with FolderServe (see FolderServeAppDelegate.serveFolders).
         NSServices:
           - NSMenuItem:

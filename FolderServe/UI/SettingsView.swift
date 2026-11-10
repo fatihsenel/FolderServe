@@ -54,8 +54,10 @@ struct SettingsView: View {
                        isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
             Divider().opacity(0.4)
             browserRow
+            #if !APPSTORE
             Divider().opacity(0.4)
             UpdateSettingsRow()
+            #endif
             Divider().opacity(0.4)
             SettingRow(title: "Show splash screen",
                        detail: "A short animation when the app opens. Skipped when launched at login.",

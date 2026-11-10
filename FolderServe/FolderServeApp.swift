@@ -15,9 +15,11 @@ struct FolderServeApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .commands {
+            #if !APPSTORE
             CommandGroup(after: .appInfo) {
-                Button("Check for Updates…") { Task { await UpdatePrompt.checkAndShow(AppServices.updates) } }
+                Button("Check for Updates…") { if let updates = AppServices.updates { Task { await UpdatePrompt.checkAndShow(updates) } } }
             }
+            #endif
             CommandGroup(replacing: .newItem) {
                 Button("Add Folder…") { FolderPicker.addFolders(to: manager) }
                     .keyboardShortcut("o", modifiers: .command)

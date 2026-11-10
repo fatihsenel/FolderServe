@@ -294,6 +294,11 @@ If there is one, a notice at the top of the window offers **Download** (the rele
 The check sends a plain request for the latest release of `fatihsenel/FolderServe` and nothing else: no folders, requests or identifiers.
 Turn it off with **Settings ▸ Check for updates**. Closing the notice hides that version until a newer one appears.
 
+## Mac App Store
+
+The same source builds for the Mac App Store with `scripts/appstore.sh` (the `APPSTORE` flag removes the update checker, since the store updates apps
+itself). Setup, listing text and review notes are in [docs/APP_STORE.md](docs/APP_STORE.md); the privacy policy is [docs/PRIVACY.md](docs/PRIVACY.md).
+
 ## Releasing
 
 `scripts/release.sh` builds a Release archive, signs it with a **Developer ID Application** certificate, notarizes it with Apple, staples the

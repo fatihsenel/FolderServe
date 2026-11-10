@@ -3,7 +3,13 @@ import AppKit
 @MainActor
 enum AppServices {
     static let manager = ServerManager(store: JSONFileStore.default, recentsStore: JSONFileStore.recents)
-    @MainActor static let updates = UpdateChecker()
+    /// The Mac App Store updates apps itself and forbids another update path (guideline 2.4.5), so the App Store build
+    /// (`-D APPSTORE`, see scripts/appstore.sh) has no update checker at all.
+    #if APPSTORE
+    @MainActor static let updates: UpdateChecker? = nil
+    #else
+    @MainActor static let updates: UpdateChecker? = UpdateChecker()
+    #endif
 }
 
 final class FolderServeAppDelegate: NSObject, NSApplicationDelegate {
@@ -16,7 +22,7 @@ final class FolderServeAppDelegate: NSObject, NSApplicationDelegate {
         NSApp.servicesProvider = self
         MainActor.assumeIsolated {
             Self.restoreServers(manager: AppServices.manager)
-            Task { await AppServices.updates.checkIfDue() }
+            Task { await AppServices.updates?.checkIfDue() }
             if SplashSettings.enabled && !Self.launchedAsLoginItem { SplashController.shared.show(gatingMainWindow: true) }
         }
     }
